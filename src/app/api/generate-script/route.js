@@ -10,7 +10,7 @@ async function generateText(prompt) {
 
   const result = await model.generateContent(prompt);
   const response = await result.response;
-  return response.text();
+  return response.text().replace(/\*\*(.*?)\*\*/g, '$1'); // Remove asterisks from the output
 }
 
 export async function POST(req) {
@@ -21,15 +21,15 @@ export async function POST(req) {
     // Modify the prompt to get the desired format
     const prompt = `Generate a video script for the theme: "${input}". Structure it as follows:
     1. Pose a question related to the theme.
-    2. Provide four distinct options, each with a brief and creative description.
+    2. Provide four distinct one word options with CTA.
     3. End with a call to action (CTA) that encourages engagement based on the selected option.
     Format:
     Question: "Your question here"
-    Option 1: "First option with description."
-    Option 2: "Second option with description."
-    Option 3: "Third option with description."
-    Option 4: "Fourth option with description."
-    CTA: "Call to action based on user choice."
+    Option 1: "First option."
+    Option 2: "Second option."
+    Option 3: "Third option."
+    Option 4: "Fourth option."
+    CTA: "Call to action based on user choice. in one line"
     `;
 
     const generatedText = await generateText(prompt);
