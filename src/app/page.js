@@ -5,9 +5,17 @@ import { Input } from "@/components/ui/input"
 import { BrainCircuit, Wand2, Rocket, Zap, Menu, X } from "lucide-react"
 import Link from "next/link"
 import { motion } from "framer-motion"
+import { cn } from "@/lib/utils"
 
 export default function LandingPage() {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
+  const [email, setEmail] = useState("")
+  const [isValid, setIsValid] = useState(true)
+
+  const handleEmailChange = (e) => {
+    setEmail(e.target.value)
+    // Add your email validation logic here
+  }
 
   return (
     <div className="flex items-center flex-col min-h-screen bg-gradient-to-b from-gray-50 to-white dark:from-gray-900 dark:to-gray-800">
@@ -318,8 +326,23 @@ export default function LandingPage() {
               </div>
               <div className="w-full max-w-sm space-y-2">
                 <form className="flex space-x-2">
-                  <Input className="max-w-lg flex-1 bg-white/10 text-white placeholder-gray-300" placeholder="Enter your email" type="email" />
-                  <Link href="/scriptgenerator">
+                  <Input
+                    id="email"
+                    className={cn(
+                      "flex-1 bg-white/10 text-white placeholder-white/50 border-white/20",
+                      "focus:border-white focus:ring-2 focus:ring-white focus:ring-opacity-50",
+                      "transition-all duration-200 ease-in-out",
+                      !isValid && "border-red-500 focus:border-red-500 focus:ring-red-500"
+                    )}
+                    placeholder="Enter your email"
+                    type="email"
+                    value={email}
+                    onChange={handleEmailChange}
+                    required
+                    aria-invalid={!isValid}
+                    aria-describedby="email-error"
+                  />
+                  <Link href="#">
                     <Button type="submit" className="bg-white text-purple-700 hover:bg-gray-100">Get Started</Button>
                   </Link>
                 </form>
