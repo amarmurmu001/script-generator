@@ -13,7 +13,7 @@ const geistMono = localFont({
 });
 
 export const metadata = {
-  title: "ScriptGenius",
+  title: "Script Genius",
   description: "ScriptGenius uses AI to generate captivating video scripts for your content. Save time, boost engagement, and never run out of ideas.",
 };
 
