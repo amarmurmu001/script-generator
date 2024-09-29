@@ -149,7 +149,7 @@ export default function ScriptGenerator() {
           </div>
         </div>
         
-        <div className="bg-white shadow rounded-lg p-6">
+        <div className="bg-white shadow rounded-lg p-6 mt-6">
           <h2 className="text-xl font-semibold mb-4">Script History</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {scriptHistory.map(script => (

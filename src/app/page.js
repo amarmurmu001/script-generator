@@ -44,7 +44,7 @@ export default function LandingPage() {
               variant="ghost"
               size="icon"
               className="md:hidden"
-              onClick={() => setIsMenuOpen(!isMenuOpen)}
+              onClick={() => setIsMenuOpen((prev) => !prev)} // Toggle the menu state
             >
               {isMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
             </Button>
@@ -52,7 +52,13 @@ export default function LandingPage() {
         </div>
       </header>
       {isMenuOpen && (
-        <div className="md:hidden">
+        <motion.div
+          initial={{ opacity: 0, height: 0 }}
+          animate={{ opacity: 1, height: "auto" }}
+          exit={{ opacity: 0, height: 0 }}
+          transition={{ duration: 0.3, ease: "easeInOut" }}
+          className="md:hidden overflow-hidden" // Added overflow-hidden
+        >
           <nav className="flex flex-col items-center py-4 bg-background">
             <Link className="py-2 text-sm font-medium hover:text-primary transition-colors" href="#features">
               Features
@@ -67,7 +73,7 @@ export default function LandingPage() {
               <Button className="mt-4">Get Started</Button>
             </Link>
           </nav>
-        </div>
+        </motion.div>
       )}
       <main className="flex-1">
         <section className="w-full py-12 md:py-24 lg:py-32 xl:py-48 bg-gradient-to-r from-purple-700 to-indigo-800 text-white">
