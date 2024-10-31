@@ -1,12 +1,13 @@
 "use client";
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Copy, Download, Volume2 } from "lucide-react";
-import { db } from "@/lib/firebase"; // Import your Firebase configuration
-import { collection, addDoc, getDocs } from "firebase/firestore"; // Import Firestore functions
+import { Copy, Download, Volume2, Play, Pause } from "lucide-react";
+import { db, storage } from "@/lib/firebase"; // Import your Firebase configuration
+import { collection, addDoc, getDocs, doc, updateDoc } from "firebase/firestore"; // Import Firestore functions
+import { ref, getDownloadURL } from "firebase/storage";
 
 export default function ScriptGenerator() {
   const [input, setInput] = useState("");
@@ -14,6 +15,12 @@ export default function ScriptGenerator() {
   const [error, setError] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
   const [scriptHistory, setScriptHistory] = useState([]); // State for script history
+  const [isGeneratingAudio, setIsGeneratingAudio] = useState(false);
+  const [audioUrls, setAudioUrls] = useState([]);
+  const [isPlaying, setIsPlaying] = useState({});
+  const audioRefs = useRef({});
+  const [generatingAudioForScript, setGeneratingAudioForScript] = useState({});
+  const [currentScriptAudio, setCurrentScriptAudio] = useState(null);
 
   const generateScript = async () => {
     setError("");
@@ -39,11 +46,22 @@ export default function ScriptGenerator() {
       setGeneratedScript(data.script);
 
       // Save the generated script to Firebase
-      await addDoc(collection(db, "scripts"), {
+      const docRef = await addDoc(collection(db, "scripts"), {
         script: data.script,
         createdAt: new Date(),
+        audioUrl: null,
+        audioFilename: null,
       });
-      alert('Script saved successfully!'); // Add this line for user feedback
+
+      // Update script history immediately
+      setScriptHistory(prev => [{
+        id: docRef.id,
+        script: data.script,
+        createdAt: new Date(),
+        audioUrl: null,
+        audioFilename: null,
+      }, ...prev]);
+
     } catch (error) {
       console.error('Error during script generation:', error);
       setError(error.message || 'Error during script generation. Please try again.');
@@ -54,18 +72,25 @@ export default function ScriptGenerator() {
 
   // Function to format the script
   const formatScript = (script) => {
+    if (!script) return null;
+    
     const lines = script.split('\n');
-    const formattedLines = lines.map((line, index) => {
-      if (line.startsWith('Question:')) {
-        return <p key={index} className="font-bold">{line}</p>;
-      } else if (line.startsWith('Option')) {
-        return <p key={index} className="ml-4">{line}</p>;
-      } else if (line.startsWith('CTA:')) {
-        return <p key={index} className="font-semibold">{line}</p>;
-      }
-      return null;
-    });
-    return <div>{formattedLines}</div>;
+    return (
+      <div className="space-y-2">
+        {lines.map((line, index) => {
+          if (line.startsWith('Question:')) {
+            return <p key={index} className="font-bold text-gray-900">{line}</p>;
+          } else if (line.startsWith('Option')) {
+            return <p key={index} className="ml-4 text-gray-700">{line}</p>;
+          } else if (line.startsWith('CTA:')) {
+            return <p key={index} className="font-semibold text-gray-800 mt-2">{line}</p>;
+          } else if (line.trim()) { // Handle any other non-empty lines
+            return <p key={index} className="text-gray-700">{line}</p>;
+          }
+          return null;
+        }).filter(Boolean)}
+      </div>
+    );
   };
 
   // Function to copy the script to clipboard
@@ -99,6 +124,218 @@ export default function ScriptGenerator() {
     element.click();
   };
 
+  const generateAudio = async () => {
+    if (!generatedScript) {
+      setError("Please generate a script first");
+      return;
+    }
+
+    setIsGeneratingAudio(true);
+    try {
+      const response = await fetch('/api/generate-audio', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ text: generatedScript }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to generate audio.');
+      }
+
+      const data = await response.json();
+      
+      // Update the most recent script document with audio information
+      const recentScript = scriptHistory[0];
+      if (recentScript) {
+        const scriptRef = doc(db, "scripts", recentScript.id);
+        await updateDoc(scriptRef, {
+          audioUrl: data.url,
+          audioFilename: data.filename,
+        });
+
+        // Update local state
+        setScriptHistory(prev => prev.map(script => 
+          script.id === recentScript.id 
+            ? { ...script, audioUrl: data.url, audioFilename: data.filename }
+            : script
+        ));
+
+        // Set current script audio
+        setCurrentScriptAudio({
+          url: data.url,
+          filename: data.filename,
+        });
+      }
+
+    } catch (error) {
+      console.error('Error generating audio:', error);
+      setError(error.message || 'Error generating audio. Please try again.');
+    } finally {
+      setIsGeneratingAudio(false);
+    }
+  };
+
+  // Add these helper functions for audio playback
+  const togglePlay = (audioId) => {
+    const audio = audioRefs.current[audioId];
+    if (!audio) return;
+
+    if (isPlaying[audioId]) {
+      audio.pause();
+    } else {
+      audio.play();
+    }
+    setIsPlaying(prev => ({
+      ...prev,
+      [audioId]: !prev[audioId]
+    }));
+  };
+
+  const handleAudioEnd = (audioId) => {
+    setIsPlaying(prev => ({
+      ...prev,
+      [audioId]: false
+    }));
+  };
+
+  const generateAudioForScript = async (script) => {
+    const scriptId = script.id;
+    setGeneratingAudioForScript(prev => ({ ...prev, [scriptId]: true }));
+    
+    try {
+      const response = await fetch('/api/generate-audio', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ text: script.script }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to generate audio.');
+      }
+
+      const data = await response.json();
+      
+      // Update the script document in Firestore with audio information
+      const scriptRef = doc(db, "scripts", scriptId);
+      await updateDoc(scriptRef, {
+        audioUrl: data.url,
+        audioFilename: data.filename,
+      });
+
+      // Update local state for script history
+      setScriptHistory(prev => prev.map(s => 
+        s.id === scriptId 
+          ? { ...s, audioUrl: data.url, audioFilename: data.filename }
+          : s
+      ));
+
+      // Add to audio URLs list
+      setAudioUrls(prev => [...prev, {
+        url: data.url,
+        filename: data.filename,
+        timestamp: new Date().toISOString(),
+        script: script.script,
+        scriptId: scriptId
+      }]);
+
+    } catch (error) {
+      console.error('Error generating audio:', error);
+      setError(error.message || 'Error generating audio. Please try again.');
+    } finally {
+      setGeneratingAudioForScript(prev => ({ ...prev, [scriptId]: false }));
+    }
+  };
+
+  // Add function to find audio for a script
+  const findAudioForScript = (scriptId) => {
+    return audioUrls.find(audio => audio.scriptId === scriptId);
+  };
+
+  // Replace the existing downloadAudio function with this updated version
+  const downloadAudio = async (audioUrl, filename) => {
+    try {
+      setError(""); // Clear any existing errors
+      
+      // Show loading state (optional)
+      const loadingToast = alert("Downloading audio...");
+
+      const response = await fetch(audioUrl, {
+        method: 'GET',
+        headers: {
+          'Accept': 'audio/mpeg',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      // Get the blob from the response
+      const blob = await response.blob();
+      
+      // Verify the blob
+      if (!blob || blob.size === 0) {
+        throw new Error('Received empty audio file');
+      }
+
+      // Create object URL
+      const url = window.URL.createObjectURL(
+        new Blob([blob], { type: 'audio/mpeg' })
+      );
+
+      // Create temporary link
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = filename || 'audio.mp3';
+
+      // Append to document, click, and cleanup
+      document.body.appendChild(link);
+      link.click();
+      
+      // Cleanup
+      setTimeout(() => {
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(link);
+      }, 100);
+
+      // Success message (optional)
+      alert("Download completed!");
+
+    } catch (error) {
+      console.error('Download error:', error);
+      setError(`Failed to download audio file: ${error.message}`);
+      alert("Download failed. Please try again.");
+    }
+  };
+
+  const hasAudio = (script) => {
+    return script.audioUrl && script.audioFilename;
+  };
+
+  // Add this function to properly format dates
+  const formatDate = (timestamp) => {
+    if (!timestamp) return 'Invalid Date';
+    
+    // Handle Firestore timestamp
+    if (timestamp.seconds) {
+      return new Date(timestamp.seconds * 1000).toLocaleString();
+    }
+    
+    // Handle regular Date object or ISO string
+    try {
+      return new Date(timestamp).toLocaleString();
+    } catch (error) {
+      console.error('Error formatting date:', error);
+      return 'Invalid Date';
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-4xl mx-auto">
@@ -122,12 +359,31 @@ export default function ScriptGenerator() {
             <Button onClick={generateScript} className="flex-1" disabled={isGenerating}>
               {isGenerating ? 'Generating...' : 'Generate Script'}
             </Button>
-            <Button variant="outline" className="flex items-center" disabled>
-              <Volume2 className="w-4 h-4 mr-2" />
-              Generate Audio
+            <Button 
+              variant="outline" 
+              className="flex items-center" 
+              onClick={generateAudio}
+              disabled={isGeneratingAudio || !generatedScript}
+            >
+              {isGeneratingAudio ? (
+                <>
+                  <Volume2 className="w-4 h-4 mr-2 animate-pulse" />
+                  Generating...
+                </>
+              ) : (
+                <>
+                  <Volume2 className="w-4 h-4 mr-2" />
+                  Generate Audio
+                </>
+              )}
             </Button>
           </div>
-          {error && <p className="text-red-500 mt-2">{error}</p>}
+          {error && (
+            <p className="text-red-500 mt-2">
+              {error.includes('audio') ? '🔊 ' : '📝 '}
+              {error}
+            </p>
+          )}
         </div>
         
         <div className="bg-white shadow rounded-lg p-6">
@@ -138,7 +394,39 @@ export default function ScriptGenerator() {
             className="w-full h-40 mb-4 p-2 border rounded"
           />
           <div className="flex justify-end space-x-4">
-            <Button variant="outline" size="sm" className="flex items-center" onClick={copyScript}>
+            {currentScriptAudio && (
+              <>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => togglePlay(currentScriptAudio.filename)}
+                  className="flex items-center"
+                >
+                  {isPlaying[currentScriptAudio.filename] ? (
+                    <Pause className="w-4 h-4 mr-2" />
+                  ) : (
+                    <Play className="w-4 h-4 mr-2" />
+                  )}
+                  {isPlaying[currentScriptAudio.filename] ? 'Pause' : 'Play'}
+                </Button>
+                <audio
+                  ref={el => audioRefs.current[currentScriptAudio.filename] = el}
+                  src={currentScriptAudio.url}
+                  onEnded={() => handleAudioEnd(currentScriptAudio.filename)}
+                  className="hidden"
+                />
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => downloadAudio(currentScriptAudio.url, currentScriptAudio.filename)}
+                  className="flex items-center"
+                >
+                  <Download className="w-4 h-4 mr-2" />
+                  Download Audio
+                </Button>
+              </>
+            )}
+            <Button variant="outline" size="sm" className="flex items-center" onClick={() => copyScript(generatedScript)}>
               <Copy className="w-4 h-4 mr-2" />
               Copy Script
             </Button>
@@ -151,21 +439,121 @@ export default function ScriptGenerator() {
         
         <div className="bg-white shadow rounded-lg p-6 mt-6">
           <h2 className="text-xl font-semibold mb-4">Script History</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4">
             {scriptHistory.map(script => (
               <div key={script.id} className="border rounded-lg p-4 shadow hover:shadow-lg transition-shadow duration-200">
-                {formatScript(script.script)} {/* Use the formatScript function here */}
+                <div className="mb-4">
+                  {formatScript(script.script)}
+                </div>
                 <div className="flex justify-between items-center mt-4">
-                  <p className="text-sm text-gray-500">{new Date(script.createdAt.seconds * 1000).toLocaleString()}</p>
-                  <Button 
-                    onClick={() => copyScript(script.script)} 
-                    variant="outline" 
-                    size="sm" 
+                  <p className="text-sm text-gray-500">
+                    {formatDate(script.createdAt)}
+                  </p>
+                  <div className="flex space-x-2">
+                    {hasAudio(script) ? (
+                      <>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => togglePlay(script.audioFilename)}
+                          className="flex items-center"
+                        >
+                          {isPlaying[script.audioFilename] ? (
+                            <Pause className="w-4 h-4" />
+                          ) : (
+                            <Play className="w-4 h-4" />
+                          )}
+                          <audio
+                            ref={el => audioRefs.current[script.audioFilename] = el}
+                            src={script.audioUrl}
+                            onEnded={() => handleAudioEnd(script.audioFilename)}
+                            className="hidden"
+                          />
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => downloadAudio(script.audioUrl, script.audioFilename)}
+                          className="flex items-center"
+                        >
+                          <Download className="w-4 h-4" />
+                        </Button>
+                      </>
+                    ) : (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => generateAudioForScript(script)}
+                        disabled={generatingAudioForScript[script.id]}
+                        className="flex items-center"
+                      >
+                        {generatingAudioForScript[script.id] ? (
+                          <>
+                            <Volume2 className="w-4 h-4 mr-2 animate-pulse" />
+                            Generating...
+                          </>
+                        ) : (
+                          <>
+                            <Volume2 className="w-4 h-4 mr-2" />
+                            Generate Audio
+                          </>
+                        )}
+                      </Button>
+                    )}
+                    <Button 
+                      onClick={() => copyScript(script.script)} 
+                      variant="outline" 
+                      size="sm" 
+                      className="flex items-center"
+                    >
+                      <Copy className="w-4 h-4 mr-2" />
+                      Copy
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+        
+        <div className="bg-white shadow rounded-lg p-6 mt-6">
+          <h2 className="text-xl font-semibold mb-4">Generated Audio History</h2>
+          <div className="space-y-4">
+            {audioUrls.map((audio, index) => (
+              <div key={index} className="border rounded-lg p-4 flex items-center justify-between">
+                <div className="flex-1">
+                  <p className="text-sm text-gray-500 mb-2">
+                    Generated on: {new Date(audio.timestamp).toLocaleString()}
+                  </p>
+                  <p className="text-sm line-clamp-2">{audio.script}</p>
+                </div>
+                <div className="flex items-center space-x-4">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => togglePlay(audio.filename)}
                     className="flex items-center"
                   >
-                    <Copy className="w-4 h-4 mr-2" />
-                    Copy Script
+                    {isPlaying[audio.filename] ? (
+                      <Pause className="w-4 h-4" />
+                    ) : (
+                      <Play className="w-4 h-4" />
+                    )}
                   </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => downloadAudio(audio.url, audio.filename)}
+                    className="flex items-center"
+                  >
+                    <Download className="w-4 h-4" />
+                  </Button>
+                  <audio
+                    ref={el => audioRefs.current[audio.filename] = el}
+                    src={audio.url}
+                    onEnded={() => handleAudioEnd(audio.filename)}
+                    className="hidden"
+                  />
                 </div>
               </div>
             ))}
