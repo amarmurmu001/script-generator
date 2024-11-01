@@ -22,13 +22,12 @@ export default function ScriptGenerator() {
   const audioRefs = useRef({});
   const [generatingAudioForScript, setGeneratingAudioForScript] = useState({});
   const [currentScriptAudio, setCurrentScriptAudio] = useState(null);
-  const [selectedVoice, setSelectedVoice] = useState("W0exs7yGL0OayYgDdJH7");
+  const [selectedVoice, setSelectedVoice] = useState("9BWtsMINqrJLrRacOk9x");
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 5;
 
   const voices = [
-    
-    { id: "9BWtsMINqrJLrRacOk9x", name: "Aria - Default Voice", description: "Expressive American female" },
+    { id: "9BWtsMINqrJLrRacOk9x", name: "Default Voice", description: "Expressive American female" },
     { id: "CwhRBWXzGAHq8TQ4Fs17", name: "Roger", description: "Confident American male" },
     { id: "EXAVITQu4vr4xnSDxMaL", name: "Sarah", description: "Soft American female" },
     { id: "FGY2WhTYpPnrIDTdsKH5", name: "Laura", description: "Upbeat American female" },
