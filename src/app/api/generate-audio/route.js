@@ -4,13 +4,14 @@ import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 
 export async function POST(req) {
   try {
-    const { text } = await req.json();
+    const { text, voiceId = 'W0exs7yGL0OayYgDdJH7' } = await req.json();
 
     console.log('Received text for audio generation:', text);
+    console.log('Using voice ID:', voiceId);
     console.log('Using API key:', process.env.ELEVEN_LABS_API_KEY ? 'API key exists' : 'No API key found');
     console.log('Making request to Eleven Labs API...');
 
-    const response = await fetch('https://api.elevenlabs.io/v1/text-to-speech/21m00Tcm4TlvDq8ikWAM', {
+    const response = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`, {
       method: 'POST',
       headers: {
         'Accept': 'audio/mpeg',

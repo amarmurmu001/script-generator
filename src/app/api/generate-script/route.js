@@ -19,19 +19,16 @@ export async function POST(req) {
     console.log("Input received:", input);
 
     // Modify the prompt to get the desired format
-    const prompt = `Generate a video script for the theme: "${input}". Structure it as follows:
-    1. Pose a question related to the theme.
-    2. Provide four distinct one word options with CTA.
-    3. End with a call to action (CTA) that encourages engagement based on the selected option.
-    Format:
-    "Your question here"
-    "Option 1: First option."
-    "Option 2: Second option."
-    "Option 3: Third option."
-    "Option 4: Fourth option."
-    "Call to action based on user choice. in one line"
-    `;
+    const prompt = `Generate an engaging social media post with a theme-based question and response options. Format it as follows:
 
+    "[Theme-related question]?
+    
+    [Option name]: [Call to action]!
+    [Option name]: [Call to action]!
+    [Option name]: [Call to action]!
+    [Option name]: [Call to action]!"
+    
+    Each option should pair a character/choice with a unique social media engagement call-to-action (like, comment, share, or subscribe).`;
     const generatedText = await generateText(prompt);
     return NextResponse.json({ script: generatedText }, { status: 200 });
   } catch (error) {
