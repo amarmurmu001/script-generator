@@ -25,10 +25,10 @@ export async function POST(req) {
     3. End with a call to action (CTA) that encourages engagement based on the selected option.
     Format:
     "Your question here"
-    Option 1: "First option."
-    Option 2: "Second option."
-    Option 3: "Third option."
-    Option 4: "Fourth option."
+    "Option 1: First option."
+    "Option 2: Second option."
+    "Option 3: Third option."
+    "Option 4: Fourth option."
     "Call to action based on user choice. in one line"
     `;
 
