@@ -1,3 +1,4 @@
+import Navbar from "@/components/Navbar"
 import localFont from "next/font/local";
 import "./globals.css";
 
@@ -19,10 +20,9 @@ export const metadata = {
 
 export default function RootLayout({ children }) {
   return (
-    <html lang="en">
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
-      >
+    <html lang="en" suppressHydrationWarning>
+      <body className={`${geistSans.variable} ${geistMono.variable} antialiased bg-[#0B0F1A] text-white min-h-screen`}>
+        <Navbar />
         {children}
       </body>
     </html>

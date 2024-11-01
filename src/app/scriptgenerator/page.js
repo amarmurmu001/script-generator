@@ -27,8 +27,8 @@ export default function ScriptGenerator() {
   const itemsPerPage = 5;
 
   const voices = [
-    { id: "W0exs7yGL0OayYgDdJH7", name: "Default Voice" },
-    { id: "9BWtsMINqrJLrRacOk9x", name: "Aria", description: "Expressive American female" },
+    
+    { id: "9BWtsMINqrJLrRacOk9x", name: "Aria - Default Voice", description: "Expressive American female" },
     { id: "CwhRBWXzGAHq8TQ4Fs17", name: "Roger", description: "Confident American male" },
     { id: "EXAVITQu4vr4xnSDxMaL", name: "Sarah", description: "Soft American female" },
     { id: "FGY2WhTYpPnrIDTdsKH5", name: "Laura", description: "Upbeat American female" },
@@ -443,36 +443,34 @@ export default function ScriptGenerator() {
     }
   };
 
-  // Add this function near your other state management code
+  // Add these functions near the top of your component, after the state declarations
   const sortedScriptHistory = [...scriptHistory].sort((a, b) => {
-    const dateA = a.updatedAt || a.createdAt;
-    const dateB = b.updatedAt || b.createdAt;
-    return new Date(dateB?.seconds * 1000 || dateB) - new Date(dateA?.seconds * 1000 || dateA);
+    return new Date(b.createdAt) - new Date(a.createdAt);
   });
 
-  // Add this function to handle pagination
   const paginate = (items) => {
     const startIndex = (currentPage - 1) * itemsPerPage;
-    const endIndex = startIndex + itemsPerPage;
-    return items.slice(startIndex, endIndex);
+    return items.slice(startIndex, startIndex + itemsPerPage);
   };
 
-  // Add this function to calculate total pages
   const totalPages = Math.ceil(scriptHistory.length / itemsPerPage);
 
-  // Add pagination controls component
+  // Add the PaginationControls component
   const PaginationControls = () => {
+    if (scriptHistory.length <= itemsPerPage) return null;
+    
     return (
-      <div className="flex justify-center items-center space-x-2 mt-4">
+      <div className="flex justify-center items-center space-x-2 mt-6">
         <Button
           variant="outline"
           size="sm"
           onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
           disabled={currentPage === 1}
+          className="text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
         >
           Previous
         </Button>
-        <span className="text-sm">
+        <span className="text-sm text-gray-700 dark:text-gray-200">
           Page {currentPage} of {totalPages}
         </span>
         <Button
@@ -480,6 +478,7 @@ export default function ScriptGenerator() {
           size="sm"
           onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
           disabled={currentPage === totalPages}
+          className="text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
         >
           Next
         </Button>
@@ -487,16 +486,11 @@ export default function ScriptGenerator() {
     );
   };
 
-  // Modify the script history section to use pagination
-  // Replace the existing script history section with this updated version
-  <div className="bg-white shadow rounded-lg p-6 mt-6">
-    <h2 className="text-xl font-semibold mb-4">Script History</h2>
+  // Update the script history section in your JSX
+  <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-6 mt-6">
+    <h2 className="text-xl font-semibold mb-4 text-gray-900 dark:text-white">Script History</h2>
     <div className="grid grid-cols-1 gap-4">
-      {paginate([...scriptHistory].sort((a, b) => {
-        const dateA = a.updatedAt || a.createdAt;
-        const dateB = b.updatedAt || b.createdAt;
-        return new Date(dateB?.seconds * 1000 || dateB) - new Date(dateA?.seconds * 1000 || dateA);
-      })).map(script => (
+      {paginate(sortedScriptHistory).map(script => (
         <div key={script.id} className="border rounded-lg p-4 shadow hover:shadow-lg transition-shadow duration-200">
           <div className="mb-4">
             {editingScript === script.id ? (
@@ -627,7 +621,7 @@ export default function ScriptGenerator() {
         </div>
       ))}
     </div>
-    {scriptHistory.length > itemsPerPage && <PaginationControls />}
+    <PaginationControls />
   </div>
 
   // Add useEffect to handle page reset when history changes
@@ -638,13 +632,15 @@ export default function ScriptGenerator() {
   }, [scriptHistory.length]);
 
   return (
-    <div className="min-h-screen bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-[#0B0F1A] dark:bg-gray-900 py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-4xl mx-auto">
-        <h1 className="text-3xl font-bold text-center text-gray-900 mb-8">Youtube CTA Shorts Script Generator</h1>
+        <h1 className="text-3xl font-bold text-center mb-8 bg-clip-text text-transparent bg-gradient-to-r from-orange-500 to-orange-600">
+          Youtube CTA Shorts Script Generator
+        </h1>
         
-        <div className="bg-white shadow rounded-lg p-6 mb-8">
+        <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-6 mb-8">
           <div className="mb-6">
-            <Label htmlFor="input" className="block text-sm font-medium text-gray-700 mb-2">
+            <Label htmlFor="input" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
               Enter Theme, Title, or Keyword
             </Label>
             <Input
@@ -652,21 +648,25 @@ export default function ScriptGenerator() {
               value={input}
               onChange={(e) => setInput(e.target.value)}
               placeholder="Enter your theme, title, or keyword..."
-              className="w-full"
+              className="w-full bg-gray-50 dark:bg-gray-900 border-gray-300 dark:border-gray-700 text-gray-900 dark:text-white placeholder-gray-500"
             />
           </div>
 
           <div className="mb-6">
-            <Label htmlFor="voice" className="block text-sm font-medium text-gray-700 mb-2">
+            <Label htmlFor="voice" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
               Select Voice
             </Label>
             <Select value={selectedVoice} onValueChange={setSelectedVoice}>
-              <SelectTrigger className="w-full">
+              <SelectTrigger className="w-full bg-gray-50 dark:bg-gray-900 border-gray-300 dark:border-gray-700 text-gray-900 dark:text-white">
                 <SelectValue placeholder="Select a voice" />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
                 {voices.map((voice) => (
-                  <SelectItem key={voice.id} value={voice.id}>
+                  <SelectItem 
+                    key={voice.id} 
+                    value={voice.id}
+                    className="text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700"
+                  >
                     {voice.name} {voice.description && `- ${voice.description}`}
                   </SelectItem>
                 ))}
@@ -675,12 +675,16 @@ export default function ScriptGenerator() {
           </div>
 
           <div className="flex flex-col sm:flex-row space-y-4 sm:space-y-0 sm:space-x-4">
-            <Button onClick={generateScript} className="flex-1" disabled={isGenerating}>
+            <Button 
+              onClick={generateScript} 
+              className="flex-1 bg-orange-500 hover:bg-orange-600 text-white" 
+              disabled={isGenerating}
+            >
               {isGenerating ? 'Generating...' : 'Generate Script'}
             </Button>
             <Button 
               variant="outline" 
-              className="flex items-center" 
+              className="flex items-center border-orange-500 text-orange-500 dark:text-orange-400 hover:bg-orange-50 dark:hover:bg-orange-500/10" 
               onClick={generateAudio}
               disabled={isGeneratingAudio || !generatedScript}
             >
@@ -705,12 +709,12 @@ export default function ScriptGenerator() {
           )}
         </div>
         
-        <div className="bg-white shadow rounded-lg p-6">
-          <h2 className="text-xl font-semibold mb-4">Script Preview</h2>
+        <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-6">
+          <h2 className="text-xl font-semibold mb-4 text-gray-900 dark:text-white">Script Preview</h2>
           <Textarea
             value={generatedScript}
             readOnly
-            className="w-full h-40 mb-4 p-2 border rounded"
+            className="w-full h-40 mb-4 p-2 border rounded bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white border-gray-300 dark:border-gray-700"
           />
           <div className="flex justify-end space-x-4">
             {currentScriptAudio && (
@@ -745,33 +749,39 @@ export default function ScriptGenerator() {
                 </Button>
               </>
             )}
-            <Button variant="outline" size="sm" className="flex items-center" onClick={() => copyScript(generatedScript)}>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              className="flex items-center text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
+              onClick={() => copyScript(generatedScript)}
+            >
               <Copy className="w-4 h-4 mr-2" />
               Copy Script
             </Button>
-            <Button variant="outline" size="sm" className="flex items-center" onClick={downloadScript}>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              className="flex items-center text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
+              onClick={downloadScript}
+            >
               <Download className="w-4 h-4 mr-2" />
               Download Script
             </Button>
           </div>
         </div>
         
-        <div className="bg-white shadow rounded-lg p-6 mt-6">
-          <h2 className="text-xl font-semibold mb-4">Script History</h2>
+        <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-6 mt-6">
+          <h2 className="text-xl font-semibold mb-4 text-gray-900 dark:text-white">Script History</h2>
           <div className="grid grid-cols-1 gap-4">
-            {paginate([...scriptHistory].sort((a, b) => {
-              const dateA = a.updatedAt || a.createdAt;
-              const dateB = b.updatedAt || b.createdAt;
-              return new Date(dateB?.seconds * 1000 || dateB) - new Date(dateA?.seconds * 1000 || dateA);
-            })).map(script => (
-              <div key={script.id} className="border rounded-lg p-4 shadow hover:shadow-lg transition-shadow duration-200">
+            {paginate(sortedScriptHistory).map(script => (
+              <div key={script.id} className="border border-gray-200 dark:text-white dark:border-gray-700 rounded-lg p-4 bg-gray-50 dark:bg-gray-900">
                 <div className="mb-4">
                   {editingScript === script.id ? (
                     <div className="space-y-2">
                       <Textarea
                         value={editedContent}
                         onChange={(e) => setEditedContent(e.target.value)}
-                        className="w-full min-h-[100px]"
+                        className="w-full min-h-[100px] "
                       />
                       <div className="flex space-x-2">
                         <Button 
@@ -795,7 +805,7 @@ export default function ScriptGenerator() {
                   )}
                 </div>
                 <div className="flex justify-between items-center mt-4">
-                  <p className="text-sm text-gray-500">
+                  <p className="text-sm text-gray-400">
                     {formatDate(script.createdAt)}
                     {script.updatedAt && ` (Updated: ${formatDate(script.updatedAt)})`}
                   </p>
@@ -806,7 +816,7 @@ export default function ScriptGenerator() {
                           variant="outline"
                           size="sm"
                           onClick={() => togglePlay(script.audioFilename)}
-                          className="flex items-center"
+                          className="flex items-center  text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
                         >
                           {isPlaying[script.audioFilename] ? (
                             <Pause className="w-4 h-4" />
@@ -824,7 +834,7 @@ export default function ScriptGenerator() {
                           variant="outline"
                           size="sm"
                           onClick={() => downloadAudio(script.audioUrl, script.audioFilename)}
-                          className="flex items-center"
+                          className="flex items-center  text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
                         >
                           <Download className="w-4 h-4" />
                         </Button>
@@ -835,16 +845,16 @@ export default function ScriptGenerator() {
                         size="sm"
                         onClick={() => generateAudioForScript(script)}
                         disabled={generatingAudioForScript[script.id]}
-                        className="flex items-center"
+                        className="flex items-center  text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700" 
                       >
                         {generatingAudioForScript[script.id] ? (
                           <>
-                            <Volume2 className="w-4 h-4 mr-2 animate-pulse" />
+                            <Volume2 className="w-4 h-4 mr-2 animate-pulse  text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700" />
                             Generating...
                           </>
                         ) : (
                           <>
-                            <Volume2 className="w-4 h-4 mr-2" />
+                            <Volume2 className="w-4 h-4 mr-2  text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700" />
                             Generate Audio
                           </>
                         )}
@@ -854,8 +864,8 @@ export default function ScriptGenerator() {
                     <Button 
                       variant="outline" 
                       size="sm"
+                      className="flex items-center text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
                       onClick={() => startEditing(script)}
-                      className="flex items-center"
                       disabled={editingScript === script.id}
                     >
                       <Edit className="w-4 h-4 mr-2" />
@@ -864,8 +874,8 @@ export default function ScriptGenerator() {
                     <Button 
                       variant="outline" 
                       size="sm"
+                      className="flex items-center text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
                       onClick={() => regenerateScript(script)}
-                      className="flex items-center"
                       disabled={isGenerating}
                     >
                       <RefreshCw className="w-4 h-4 mr-2" />
@@ -874,8 +884,8 @@ export default function ScriptGenerator() {
                     <Button 
                       variant="outline" 
                       size="sm"
+                      className="flex items-center text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-500/10"
                       onClick={() => deleteScript(script.id)}
-                      className="flex items-center text-red-600 hover:text-red-700"
                     >
                       <Trash2 className="w-4 h-4 mr-2" />
                       Delete
@@ -883,8 +893,8 @@ export default function ScriptGenerator() {
                     <Button 
                       variant="outline" 
                       size="sm"
+                      className="flex items-center text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
                       onClick={() => copyScript(script.script)}
-                      className="flex items-center"
                     >
                       <Copy className="w-4 h-4 mr-2" />
                       Copy
@@ -894,10 +904,7 @@ export default function ScriptGenerator() {
               </div>
             ))}
           </div>
-          {scriptHistory.length > itemsPerPage && <PaginationControls />}
         </div>
-        
-      
       </div>
     </div>
   );

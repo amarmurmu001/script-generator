@@ -1,83 +1,33 @@
 "use client"
+
 import { useState } from 'react'
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { BrainCircuit, Wand2, Rocket, Zap, Menu, X } from "lucide-react"
+import { Wand2, Rocket, Zap } from "lucide-react"
 import Link from "next/link"
 import { motion } from "framer-motion"
 import { cn } from "@/lib/utils"
 
 export default function LandingPage() {
-  const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [email, setEmail] = useState("")
   const [isValid, setIsValid] = useState(true)
 
   const handleEmailChange = (e) => {
     setEmail(e.target.value)
-    // Add your email validation logic here
+    setIsValid(e.target.checkValidity())
   }
 
   return (
-    <div className="flex items-center flex-col min-h-screen bg-gradient-to-b from-gray-50 to-white dark:from-gray-900 dark:to-gray-800">
-      <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="container flex h-16 items-center justify-between mx-auto"> {/* Keep justify-between for spacing */}
-          <div className="flex items-center space-x-2"> {/* Group logo items */}
-            <BrainCircuit className="h-6 w-6 text-primary" />
-            <span className="font-bold text-xl">ScriptGenius</span>
-          </div>
-          <nav className="hidden md:flex gap-6 flex-grow justify-center"> {/* Center nav items */}
-            <Link className="text-sm font-medium hover:text-primary transition-colors" href="#features">
-              Features
-            </Link>
-            <Link className="text-sm font-medium hover:text-primary transition-colors" href="#pricing">
-              Pricing
-            </Link>
-            <Link className="text-sm font-medium hover:text-primary transition-colors" href="#faq">
-              FAQ
-            </Link>
-          </nav>
-          <div className="flex items-center"> {/* Group buttons */}
-            <Link href="/scriptgenerator">
-              <Button size="lg" className="bg-black text-white hover:bg-gray-900">Get Started</Button>
-            </Link>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="md:hidden"
-              onClick={() => setIsMenuOpen((prev) => !prev)} // Toggle the menu state
-            >
-              {isMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
-            </Button>
-          </div>
-        </div>
-      </header>
-      {isMenuOpen && (
-        <motion.div
-          initial={{ opacity: 0, height: 0 }}
-          animate={{ opacity: 1, height: "auto" }}
-          exit={{ opacity: 0, height: 0 }}
-          transition={{ duration: 0.3, ease: "easeInOut" }}
-          className="md:hidden overflow-hidden" // Added overflow-hidden
-        >
-          <nav className="flex flex-col items-center py-4 bg-background">
-            <Link className="py-2 text-sm font-medium hover:text-primary transition-colors" href="#features">
-              Features
-            </Link>
-            <Link className="py-2 text-sm font-medium hover:text-primary transition-colors" href="#pricing">
-              Pricing
-            </Link>
-            <Link className="py-2 text-sm font-medium hover:text-primary transition-colors" href="#faq">
-              FAQ
-            </Link>
-            <Link href="/scriptgenerator">
-              <Button className="mt-4">Get Started</Button>
-            </Link>
-          </nav>
-        </motion.div>
-      )}
+    <div className={cn(
+      "flex flex-col min-h-screen",
+      "bg-gradient-to-b from-gray-50 to-white",
+      "dark:from-gray-900 dark:to-gray-800",
+      "text-gray-900 dark:text-gray-100",
+      "transition-colors duration-300"
+    )}>
       <main className="flex-1">
-        <section className="w-full py-12 md:py-24 lg:py-32 xl:py-48 bg-gradient-to-r from-purple-700 to-indigo-800 text-white">
-          <div className="container px-4 md:px-6">
+        <section className="w-full py-12 md:py-24 lg:py-32 xl:py-48 bg-gradient-to-r from-orange-500 to-orange-700 text-white">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full">
             <div className="flex flex-col items-center space-y-4 text-center">
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
@@ -100,227 +50,90 @@ export default function LandingPage() {
                 className="space-x-4"
               >
                 <Link href="/scriptgenerator">
-                  <Button size="lg" className="bg-white text-purple-700 hover:bg-gray-100">Get Started</Button>
+                  <Button size="lg" className="bg-white text-orange-600 hover:bg-gray-100 dark:bg-gray-800 dark:text-orange-400 dark:hover:bg-gray-700">
+                    Get Started
+                  </Button>
                 </Link>
-                <Button size="lg" variant="outline" className="text-white bg-purple border-white hover:bg-white/10 hover:text-white">Learn More</Button>
               </motion.div>
             </div>
           </div>
         </section>
         <section id="features" className="w-full py-12 md:py-24 lg:py-32">
-          <div className="container px-4 md:px-6">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full">
             <h2 className="text-3xl font-bold tracking-tighter sm:text-5xl text-center mb-12">Key Features</h2>
             <div className="grid gap-10 sm:grid-cols-2 md:grid-cols-3">
-              <motion.div
-                whileHover={{ scale: 1.05 }}
-                className="flex flex-col items-center text-center p-6 bg-white rounded-lg shadow-lg dark:bg-gray-800"
-              >
-                <Wand2 className="h-12 w-12 mb-4 text-purple-600" />
-                <h3 className="text-xl font-bold mb-2">AI-Powered Generation</h3>
-                <p className="text-gray-500 dark:text-gray-400">
-                  Our advanced AI creates unique, engaging scripts tailored to your needs.
-                </p>
-              </motion.div>
-              <motion.div
-                whileHover={{ scale: 1.05 }}
-                className="flex flex-col items-center text-center p-6 bg-white rounded-lg shadow-lg dark:bg-gray-800"
-              >
-                <Zap className="h-12 w-12 mb-4 text-purple-600" />
-                <h3 className="text-xl font-bold mb-2">Lightning Fast</h3>
-                <p className="text-gray-500 dark:text-gray-400">
-                  Generate scripts in seconds, not hours. Save time and boost productivity.
-                </p>
-              </motion.div>
-              <motion.div
-                whileHover={{ scale: 1.05 }}
-                className="flex flex-col items-center text-center p-6 bg-white rounded-lg shadow-lg dark:bg-gray-800"
-              >
-                <Rocket className="h-12 w-12 mb-4 text-purple-600" />
-                <h3 className="text-xl font-bold mb-2">Customizable Themes</h3>
-                <p className="text-gray-500 dark:text-gray-400">
-                  Choose from a variety of themes or create your own for perfectly tailored content.
-                </p>
-              </motion.div>
+              {[
+                { icon: Wand2, title: "AI-Powered Generation", description: "Our advanced AI creates unique, engaging scripts tailored to your needs." },
+                { icon: Zap, title: "Lightning Fast", description: "Generate scripts in seconds, not hours. Save time and boost productivity." },
+                { icon: Rocket, title: "Customizable Themes", description: "Choose from a variety of themes or create your own for perfectly tailored content." }
+              ].map((feature, index) => (
+                <motion.div
+                  key={index}
+                  whileHover={{ scale: 1.05 }}
+                  className="flex flex-col items-center text-center p-6 bg-white rounded-lg shadow-lg dark:bg-gray-800"
+                >
+                  <feature.icon className="h-12 w-12 mb-4 text-orange-500 dark:text-orange-400" />
+                  <h3 className="text-xl font-bold mb-2">{feature.title}</h3>
+                  <p className="text-gray-500 dark:text-gray-400">{feature.description}</p>
+                </motion.div>
+              ))}
             </div>
           </div>
         </section>
         <section id="pricing" className="w-full py-12 md:py-24 lg:py-32 bg-gray-100 dark:bg-gray-900">
-          <div className="container px-4 md:px-6">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full">
             <h2 className="text-3xl font-bold tracking-tighter sm:text-5xl text-center mb-12">Simple Pricing</h2>
             <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
-              <motion.div
-                whileHover={{ scale: 1.03 }}
-                className="flex flex-col p-6 bg-white dark:bg-gray-800 rounded-lg shadow-lg"
-              >
-                <h3 className="text-2xl font-bold mb-4">Starter</h3>
-                <p className="text-4xl font-bold mb-4">$9<span className="text-xl font-normal">/month</span></p>
-                <ul className="mb-6 space-y-2">
-                  <li className="flex items-center">
-                    <svg
-                      className="w-4 h-4 mr-2 text-green-500"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                      xmlns="http://www.w3.org/2000/svg"
-                    >
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path>
-                    </svg>
-                    50 scripts per month
-                  </li>
-                  <li className="flex items-center">
-                    <svg
-                      className="w-4 h-4 mr-2 text-green-500"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                      xmlns="http://www.w3.org/2000/svg"
-                    >
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path>
-                    </svg>
-                    5 themes
-                  </li>
-                  <li className="flex items-center">
-                    <svg
-                      className="w-4 h-4 mr-2 text-green-500"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                      xmlns="http://www.w3.org/2000/svg"
-                    >
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path>
-                    </svg>
-                    Basic support
-                  </li>
-                </ul>
-                <Link href="/scriptgenerator">
-                  <Button className="mt-auto">Choose Plan</Button>
-                </Link>
-              </motion.div>
-              <motion.div
-                whileHover={{ scale: 1.03 }}
-                className="flex flex-col p-6 bg-purple-600 text-white rounded-lg shadow-lg"
-              >
-                <h3 className="text-2xl font-bold mb-4">Pro</h3>
-                <p className="text-4xl font-bold mb-4">$29<span className="text-xl font-normal">/month</span></p>
-                <ul className="mb-6 space-y-2">
-                  <li className="flex items-center">
-                    <svg
-                      className="w-4 h-4 mr-2 text-white"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                      xmlns="http://www.w3.org/2000/svg"
-                    >
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path>
-                    </svg>
-                    Unlimited scripts
-                  </li>
-                  <li className="flex items-center">
-                    <svg
-                      className="w-4 h-4 mr-2 text-white"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                      xmlns="http://www.w3.org/2000/svg"
-                    >
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path>
-                    </svg>
-                    All themes
-                  </li>
-                  <li className="flex items-center">
-                    <svg
-                      className="w-4 h-4 mr-2 text-white"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                      xmlns="http://www.w3.org/2000/svg"
-                    >
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path>
-                    </svg>
-                    Priority support
-                  </li>
-                  <li className="flex items-center">
-                    <svg
-                      className="w-4 h-4 mr-2 text-white"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                      xmlns="http://www.w3.org/2000/svg"
-                    >
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path>
-                    </svg>
-                    Custom themes
-                  </li>
-                </ul>
-                <Link href="/scriptgenerator">
-                  <Button className="mt-auto bg-white text-purple-600 hover:bg-gray-100">Choose Plan</Button>
-                </Link>
-              </motion.div>
-              <motion.div
-                whileHover={{ scale: 1.03 }}
-                className="flex flex-col p-6 bg-white dark:bg-gray-800 rounded-lg shadow-lg"
-              >
-                <h3 className="text-2xl font-bold mb-4">Enterprise</h3>
-                <p className="text-4xl font-bold mb-4">Custom</p>
-                <ul className="mb-6 space-y-2">
-                  <li className="flex items-center">
-                    <svg
-                      className="w-4 h-4 mr-2 text-green-500"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                      xmlns="http://www.w3.org/2000/svg"
-                    >
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path>
-                    </svg>
-                    Unlimited everything
-                  </li>
-                  <li className="flex items-center">
-                    <svg
-                      className="w-4 h-4 mr-2 text-green-500"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                      xmlns="http://www.w3.org/2000/svg"
-                    >
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path>
-                    </svg>
-                    Dedicated account manager
-                  </li>
-                  <li className="flex items-center">
-                    <svg
-                      className="w-4 h-4 mr-2 text-green-500"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                      xmlns="http://www.w3.org/2000/svg"
-                    >
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path>
-                    </svg>
-                    24/7 phone support
-                  </li>
-                  <li className="flex items-center">
-                    <svg
-                      className="w-4 h-4 mr-2 text-green-500"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                      xmlns="http://www.w3.org/2000/svg"
-                    >
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path>
-                    </svg>
-                    Custom integrations
-                  </li>
-                </ul>
-                <Link href="/scriptgenerator">
-                  <Button variant="outline" className="mt-auto">Contact Sales</Button>
-                </Link>
-              </motion.div>
+              {[
+                { title: "Starter", price: "$9", features: ["50 scripts per month", "5 themes", "Basic support"] },
+                { title: "Pro", price: "$29", features: ["Unlimited scripts", "All themes", "Priority support", "Custom themes"] },
+                { title: "Enterprise", price: "Custom", features: ["Unlimited everything", "Dedicated account manager", "24/7 phone support", "Custom integrations"] }
+              ].map((plan, index) => (
+                <motion.div
+                  key={index}
+                  whileHover={{ scale: 1.03 }}
+                  className={cn(
+                    "flex flex-col p-6 rounded-lg shadow-lg",
+                    index === 1 ? "bg-orange-500 text-white" : "bg-white dark:bg-gray-800"
+                  )}
+                >
+                  <h3 className="text-2xl font-bold mb-4">{plan.title}</h3>
+                  <p className="text-4xl font-bold mb-4">{plan.price}<span className="text-xl font-normal">{plan.price !== "Custom" && "/month"}</span></p>
+                  <ul className="mb-6 space-y-2">
+                    {plan.features.map((feature, fIndex) => (
+                      <li key={fIndex} className="flex items-center">
+                        <svg
+                          className={cn(
+                            "w-4 h-4 mr-2",
+                            index === 1 ? "text-white" : "text-green-500"
+                          )}
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                          xmlns="http://www.w3.org/2000/svg"
+                        >
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path>
+                        </svg>
+                        {feature}
+                      </li>
+                    ))}
+                  </ul>
+                  <Link href="/scriptgenerator" className="mt-auto">
+                    <Button className={cn(
+                      "w-full",
+                      index === 1 ? "bg-white text-orange-500 hover:bg-gray-100" : 
+                      (index === 2 ? "bg-orange-500 text-white hover:bg-orange-600" : "")
+                    )}>
+                      {index === 2 ? "Contact Sales" : "Choose Plan"}
+                    </Button>
+                  </Link>
+                </motion.div>
+              ))}
             </div>
           </div>
         </section>
-        <section id="cta" className="w-full py-12 md:py-24 lg:py-32 bg-purple-700 text-white">
-          <div className="container px-4 md:px-6">
+        <section id="cta" className="w-full py-12 md:py-24 lg:py-32 bg-orange-500 dark:bg-orange-600 text-white">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full">
             <div className="flex flex-col items-center space-y-4 text-center">
               <div className="space-y-2">
                 <h2 className="text-3xl font-bold tracking-tighter sm:text-5xl">
@@ -348,9 +161,9 @@ export default function LandingPage() {
                     aria-invalid={!isValid}
                     aria-describedby="email-error"
                   />
-                  <Link href="#">
-                    <Button type="submit" className="bg-white text-purple-700 hover:bg-gray-100">Get Started</Button>
-                  </Link>
+                  <Button type="submit" className="bg-white text-purple-700 hover:bg-gray-100 dark:bg-gray-800 dark:text-purple-400 dark:hover:bg-gray-700">
+                    Get Started
+                  </Button>
                 </form>
                 <p className="text-xs text-gray-300">
                   Start your free 14-day trial. No credit card required.
@@ -361,7 +174,7 @@ export default function LandingPage() {
         </section>
       </main>
       <footer className="py-6 w-full shrink-0 border-t bg-background">
-        <div className="container flex flex-col sm:flex-row items-center justify-between gap-4 px-4 md:px-6">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full flex flex-col sm:flex-row items-center justify-between gap-4">
           <p className="text-xs text-gray-500 dark:text-gray-400">
             © 2024 ScriptGenius. All rights reserved.
           </p>

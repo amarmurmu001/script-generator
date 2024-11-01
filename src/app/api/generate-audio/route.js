@@ -4,7 +4,7 @@ import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 
 export async function POST(req) {
   try {
-    const { text, voiceId = 'W0exs7yGL0OayYgDdJH7' } = await req.json();
+    const { text, voiceId = '9BWtsMINqrJLrRacOk9x' } = await req.json();
 
     console.log('Received text for audio generation:', text);
     console.log('Using voice ID:', voiceId);
