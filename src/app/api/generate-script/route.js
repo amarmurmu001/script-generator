@@ -23,12 +23,12 @@ export async function POST(req) {
     2. Provide four distinct one word options with CTA.
     3. End with a call to action (CTA) that encourages engagement based on the selected option.
     Format:
-    Question: "Your question here"
-    Option 1: "First option."
-    Option 2: "Second option."
-    Option 3: "Third option."
-    Option 4: "Fourth option."
-    CTA: "Call to action based on user choice. in one line"
+    "Your question here"
+     "First option. with 2-3 words explaination."
+    "Second option. with 2-3 words explaination."
+    "Third option. with 2-3 words explaination."
+    "Fourth option. with 2-3 words explaination."
+    "Call to action based on user choice. in one line"
     `;
 
     // Modify the prompt to get the desired format

@@ -3,19 +3,45 @@
 import { useState } from 'react'
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Wand2, Rocket, Zap } from "lucide-react"
+import { Wand2, Rocket, Zap, ChevronDown, ChevronUp } from "lucide-react"
 import Link from "next/link"
 import { motion } from "framer-motion"
 import { cn } from "@/lib/utils"
+import { useAuth } from '@/lib/auth-context'
 
 export default function LandingPage() {
   const [email, setEmail] = useState("")
   const [isValid, setIsValid] = useState(true)
+  const [openFaq, setOpenFaq] = useState(null)
+  const { user } = useAuth();
 
   const handleEmailChange = (e) => {
     setEmail(e.target.value)
     setIsValid(e.target.checkValidity())
   }
+
+  const faqs = [
+    {
+      question: "What is ScriptGenius?",
+      answer: "ScriptGenius is an AI-powered script generation tool designed specifically for creating engaging YouTube Shorts CTA scripts. It helps content creators save time and maintain consistency in their content."
+    },
+    {
+      question: "How does the script generation work?",
+      answer: "Simply enter your theme, title, or keyword, and our AI will generate a customized script optimized for YouTube Shorts. You can then edit, regenerate, or convert the script to audio as needed."
+    },
+    {
+      question: "Can I customize the generated scripts?",
+      answer: "Yes! You can edit any generated script to match your style and preferences. You can also regenerate scripts until you get the perfect content for your needs."
+    },
+    {
+      question: "What about the audio feature?",
+      answer: "ScriptGenius includes a text-to-speech feature with multiple voice options. You can convert any script to audio, making it perfect for voice-overs in your YouTube Shorts."
+    },
+    {
+      question: "Is there a limit to how many scripts I can generate?",
+      answer: "During the 14-day free trial, you can generate up to 50 scripts. After that, our pricing plans are designed to accommodate different content creation needs."
+    }
+  ]
 
   return (
     <div className={cn(
@@ -38,23 +64,38 @@ export default function LandingPage() {
                 <h1 className="text-4xl font-bold tracking-tighter sm:text-5xl md:text-6xl lg:text-7xl">
                   Create Engaging Video Scripts in Minutes
                 </h1>
-                <p className="mx-auto max-w-[700px] text-lg md:text-xl text-gray-200">
-                  ScriptGenius uses AI to generate captivating video scripts for your content. Save time, boost
-                  engagement, and never run out of ideas.
+                <p className="mx-auto max-w-[600px] text-gray-200 md:text-xl/relaxed lg:text-base/relaxed xl:text-xl/relaxed">
+                  Transform your content creation with AI-powered script generation
                 </p>
               </motion.div>
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.5, delay: 0.2 }}
-                className="space-x-4"
-              >
-                <Link href="/scriptgenerator">
-                  <Button size="lg" className="bg-white text-orange-600 hover:bg-gray-100 dark:bg-gray-800 dark:text-orange-400 dark:hover:bg-gray-700">
-                    Get Started
-                  </Button>
-                </Link>
-              </motion.div>
+              {!user && (
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.5, delay: 0.2 }}
+                  className="space-x-4"
+                >
+                  <Link href="/signup">
+                    <Button size="lg" className="bg-white text-orange-600 hover:bg-gray-100">
+                      Get Started
+                    </Button>
+                  </Link>
+                </motion.div>
+              )}
+              {user && (
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.5, delay: 0.2 }}
+                  className="space-x-4"
+                >
+                  <Link href="/scriptgenerator">
+                    <Button size="lg" className="bg-white text-orange-600 hover:bg-gray-100">
+                      Go to Script Generator
+                    </Button>
+                  </Link>
+                </motion.div>
+              )}
             </div>
           </div>
         </section>
@@ -132,46 +173,84 @@ export default function LandingPage() {
             </div>
           </div>
         </section>
-        <section id="cta" className="w-full py-12 md:py-24 lg:py-32 bg-orange-500 dark:bg-orange-600 text-white">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full">
-            <div className="flex flex-col items-center space-y-4 text-center">
-              <div className="space-y-2">
-                <h2 className="text-3xl font-bold tracking-tighter sm:text-5xl">
-                  Ready to Transform Your Content?
-                </h2>
-                <p className="mx-auto max-w-[600px] text-gray-200 md:text-xl/relaxed lg:text-base/relaxed xl:text-xl/relaxed">
-                  Join thousands of content creators who are already using ScriptGenius to create engaging video scripts.
-                </p>
-              </div>
-              <div className="w-full max-w-sm space-y-2">
-                <form className="flex space-x-2">
-                  <Input
-                    id="email"
-                    className={cn(
-                      "flex-1 bg-white/10 text-white placeholder-white/50 border-white/20",
-                      "focus:border-white focus:ring-2 focus:ring-white focus:ring-opacity-50",
-                      "transition-all duration-200 ease-in-out",
-                      !isValid && "border-red-500 focus:border-red-500 focus:ring-red-500"
+        <section id="faq" className="w-full py-12 md:py-24 lg:py-32 bg-gray-50 dark:bg-gray-900">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <h2 className="text-3xl font-bold tracking-tighter sm:text-5xl text-center mb-12">
+              Frequently Asked Questions
+            </h2>
+            <div className="max-w-3xl mx-auto space-y-4">
+              {faqs.map((faq, index) => (
+                <div
+                  key={index}
+                  className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700"
+                >
+                  <button
+                    onClick={() => setOpenFaq(openFaq === index ? null : index)}
+                    className="w-full px-6 py-4 flex justify-between items-center text-left"
+                  >
+                    <h3 className="font-semibold text-lg text-gray-900 dark:text-white">
+                      {faq.question}
+                    </h3>
+                    {openFaq === index ? (
+                      <ChevronUp className="w-5 h-5 text-gray-500" />
+                    ) : (
+                      <ChevronDown className="w-5 h-5 text-gray-500" />
                     )}
-                    placeholder="Enter your email"
-                    type="email"
-                    value={email}
-                    onChange={handleEmailChange}
-                    required
-                    aria-invalid={!isValid}
-                    aria-describedby="email-error"
-                  />
-                  <Button type="submit" className="bg-white text-purple-700 hover:bg-gray-100 dark:bg-gray-800 dark:text-purple-400 dark:hover:bg-gray-700">
-                    Get Started
-                  </Button>
-                </form>
-                <p className="text-xs text-gray-300">
-                  Start your free 14-day trial. No credit card required.
-                </p>
-              </div>
+                  </button>
+                  {openFaq === index && (
+                    <div className="px-6 pb-4">
+                      <p className="text-gray-600 dark:text-gray-300">
+                        {faq.answer}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              ))}
             </div>
           </div>
         </section>
+        {!user && (
+          <section id="cta" className="w-full py-12 md:py-24 lg:py-32 bg-orange-500 dark:bg-orange-600 text-white">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full">
+              <div className="flex flex-col items-center space-y-4 text-center">
+                <div className="space-y-2">
+                  <h2 className="text-3xl font-bold tracking-tighter sm:text-5xl">
+                    Ready to Transform Your Content?
+                  </h2>
+                  <p className="mx-auto max-w-[600px] text-gray-200 md:text-xl/relaxed lg:text-base/relaxed xl:text-xl/relaxed">
+                    Join thousands of content creators who are already using ScriptGenius to create engaging video scripts.
+                  </p>
+                </div>
+                <div className="w-full max-w-sm space-y-2">
+                  <form className="flex space-x-2">
+                    <Input
+                      id="email"
+                      className={cn(
+                        "flex-1 bg-white/10 text-white placeholder-white/50 border-white/20",
+                        "focus:border-white focus:ring-2 focus:ring-white focus:ring-opacity-50",
+                        "transition-all duration-200 ease-in-out",
+                        !isValid && "border-red-500 focus:border-red-500 focus:ring-red-500"
+                      )}
+                      placeholder="Enter your email"
+                      type="email"
+                      value={email}
+                      onChange={handleEmailChange}
+                      required
+                      aria-invalid={!isValid}
+                      aria-describedby="email-error"
+                    />
+                    <Button type="submit" className="bg-white text-purple-700 hover:bg-gray-100 dark:bg-gray-800 dark:text-purple-400 dark:hover:bg-gray-700">
+                      Get Started
+                    </Button>
+                  </form>
+                  <p className="text-xs text-gray-300">
+                    Start your free 14-day trial. No credit card required.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </section>
+        )}
       </main>
       <footer className="py-6 w-full shrink-0 border-t bg-background">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full flex flex-col sm:flex-row items-center justify-between gap-4">
