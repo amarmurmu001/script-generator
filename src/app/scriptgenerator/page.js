@@ -649,10 +649,13 @@ export default function ScriptGenerator() {
 
   // Add useEffect to handle page reset when history changes
   useEffect(() => {
-    if (currentPage > totalPages && totalPages > 0) {
-      setCurrentPage(totalPages);
+    if (scriptHistory.length > 0) {
+      setTotalPages(Math.ceil(scriptHistory.length / itemsPerPage));
+      if (currentPage > totalPages) {
+        setCurrentPage(1);
+      }
     }
-  }, [scriptHistory.length]);
+  }, [scriptHistory, currentPage, totalPages, itemsPerPage]);
 
   return (
     <AuthCheck>
