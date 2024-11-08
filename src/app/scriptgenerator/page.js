@@ -26,7 +26,8 @@ export default function ScriptGenerator() {
   const [currentScriptAudio, setCurrentScriptAudio] = useState(null);
   const [selectedVoice, setSelectedVoice] = useState("9BWtsMINqrJLrRacOk9x");
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 5;
+  const [itemsPerPage] = useState(5);
+  const [totalPages, setTotalPages] = useState(1);
 
   const voices = [
     { id: "9BWtsMINqrJLrRacOk9x", name: "Default Voice", description: "Expressive American female" },
@@ -476,9 +477,18 @@ export default function ScriptGenerator() {
     return items.slice(startIndex, startIndex + itemsPerPage);
   };
 
-  const totalPages = Math.ceil(scriptHistory.length / itemsPerPage);
+  // Update the useEffect for pagination
+  useEffect(() => {
+    if (scriptHistory.length > 0) {
+      const calculatedTotalPages = Math.ceil(scriptHistory.length / itemsPerPage);
+      setTotalPages(calculatedTotalPages);
+      if (currentPage > calculatedTotalPages) {
+        setCurrentPage(1);
+      }
+    }
+  }, [scriptHistory, currentPage, itemsPerPage]);
 
-  // Add the PaginationControls component
+  // Keep the PaginationControls component
   const PaginationControls = () => {
     if (scriptHistory.length <= itemsPerPage) return null;
     
@@ -646,16 +656,6 @@ export default function ScriptGenerator() {
     </div>
     <PaginationControls />
   </div>
-
-  // Add useEffect to handle page reset when history changes
-  useEffect(() => {
-    if (scriptHistory.length > 0) {
-      setTotalPages(Math.ceil(scriptHistory.length / itemsPerPage));
-      if (currentPage > totalPages) {
-        setCurrentPage(1);
-      }
-    }
-  }, [scriptHistory, currentPage, totalPages, itemsPerPage]);
 
   return (
     <AuthCheck>
