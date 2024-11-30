@@ -33,7 +33,7 @@ export default function Navbar() {
 
   return (
     <>
-      <header className="sticky top-0 z-50 w-full border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-[#0B0F1A]/95 backdrop-blur">
+      <header className="sticky top-0 z-50 w-full border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-[#121212] backdrop-blur">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full flex h-16 items-center justify-between">
           <div className="flex items-center space-x-2">
             <Link href="/" className="flex items-center space-x-2">
@@ -138,7 +138,7 @@ export default function Navbar() {
           animate={{ opacity: 1, height: "auto" }}
           exit={{ opacity: 0, height: 0 }}
           transition={{ duration: 0.3, ease: "easeInOut" }}
-          className="md:hidden overflow-hidden w-full bg-white dark:bg-[#0B0F1A] border-b border-gray-200 dark:border-gray-800"
+          className="md:hidden overflow-hidden w-full bg-white dark:bg-[#121212] border-b border-gray-200 dark:border-gray-800"
         >
           <nav className="flex flex-col items-center py-4">
             {["Features", "Pricing", "FAQ"].map((item) => (

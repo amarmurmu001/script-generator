@@ -659,277 +659,257 @@ export default function ScriptGenerator() {
 
   return (
     <AuthCheck>
-      <div className="min-h-screen bg-[#0B0F1A] dark:bg-gray-900 py-12 px-4 sm:px-6 lg:px-8">
-        <div className="max-w-4xl mx-auto">
-          <h1 className="text-3xl font-bold text-center mb-8 bg-clip-text text-transparent bg-gradient-to-r from-orange-500 to-orange-600">
-            Youtube CTA Shorts Script Generator
-          </h1>
-          
-          <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-6 mb-8">
-            <div className="mb-6">
-              <Label htmlFor="input" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Enter Theme, Title, or Keyword
-              </Label>
-              <Input
-                id="input"
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                placeholder="Enter your theme, title, or keyword..."
-                className="w-full bg-gray-50 dark:bg-gray-900 border-gray-300 dark:border-gray-700 text-gray-900 dark:text-white placeholder-gray-500"
-              />
-            </div>
-
-            <div className="mb-6">
-              <Label htmlFor="voice" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Select Voice
-              </Label>
-              <Select value={selectedVoice} onValueChange={setSelectedVoice}>
-                <SelectTrigger className="w-full bg-gray-50 dark:bg-gray-900 border-gray-300 dark:border-gray-700 text-gray-900 dark:text-white">
-                  <SelectValue placeholder="Select a voice" />
-                </SelectTrigger>
-                <SelectContent className="bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
-                  {voices.map((voice) => (
-                    <SelectItem 
-                      key={voice.id} 
-                      value={voice.id}
-                      className="text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700"
-                    >
-                      {voice.name} {voice.description && `- ${voice.description}`}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="flex flex-col sm:flex-row space-y-4 sm:space-y-0 sm:space-x-4">
-              <Button 
-                onClick={generateScript} 
-                className="flex-1 bg-orange-500 hover:bg-orange-600 text-white" 
-                disabled={isGenerating}
-              >
-                {isGenerating ? 'Generating...' : 'Generate Script'}
-              </Button>
-              <Button 
-                variant="outline" 
-                className="flex items-center border-orange-500 text-orange-500 dark:text-orange-400 hover:bg-orange-50 dark:hover:bg-orange-500/10" 
-                onClick={generateAudio}
-                disabled={isGeneratingAudio || !generatedScript}
-              >
-                {isGeneratingAudio ? (
-                  <>
-                    <Volume2 className="w-4 h-4 mr-2 animate-pulse" />
-                    Generating...
-                  </>
-                ) : (
-                  <>
-                    <Volume2 className="w-4 h-4 mr-2" />
-                    Generate Audio
-                  </>
-                )}
-              </Button>
-            </div>
-            {error && (
-              <p className="text-red-500 mt-2">
-                {error.includes('audio') ? '🔊 ' : '📝 '}
-                {error}
-              </p>
-            )}
-          </div>
-          
-          <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-6">
-            <h2 className="text-xl font-semibold mb-4 text-gray-900 dark:text-white">Script Preview</h2>
-            <Textarea
-              value={generatedScript}
-              readOnly
-              className="w-full h-40 mb-4 p-2 border rounded bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white border-gray-300 dark:border-gray-700"
-            />
-            <div className="flex justify-end space-x-4">
-              {currentScriptAudio && (
-                <>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => togglePlay(currentScriptAudio.filename)}
-                    className="flex items-center"
-                  >
-                    {isPlaying[currentScriptAudio.filename] ? (
-                      <Pause className="w-4 h-4 mr-2" />
-                    ) : (
-                      <Play className="w-4 h-4 mr-2" />
-                    )}
-                    {isPlaying[currentScriptAudio.filename] ? 'Pause' : 'Play'}
-                  </Button>
-                  <audio
-                    ref={el => audioRefs.current[currentScriptAudio.filename] = el}
-                    src={currentScriptAudio.url}
-                    onEnded={() => handleAudioEnd(currentScriptAudio.filename)}
-                    className="hidden"
+      <div className="min-h-screen bg-white dark:bg-[#121212] py-8">
+        <div className="container mx-auto px-4">
+          <div className="max-w-4xl mx-auto">
+            <h1 className="text-4xl font-bold text-center mb-12 bg-clip-text text-transparent bg-gradient-to-r from-orange-500 to-orange-600">
+              Youtube CTA Shorts Script Generator
+            </h1>
+            
+            <div className="bg-white dark:bg-[#121212] border border-gray-200 dark:border-gray-800 rounded-lg p-8 mb-8 shadow-lg">
+              <div className="space-y-6">
+                <div>
+                  <Label htmlFor="input" className="block text-sm font-medium text-black dark:text-white mb-2">
+                    Enter Theme, Title, or Keyword
+                  </Label>
+                  <Input
+                    id="input"
+                    value={input}
+                    onChange={(e) => setInput(e.target.value)}
+                    placeholder="Enter your theme, title, or keyword..."
+                    className="w-full dark:bg-[#121212] dark:border-gray-700 text-white placeholder-gray-400"
                   />
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => downloadAudio(currentScriptAudio.url, currentScriptAudio.filename)}
-                    className="flex items-center"
+                </div>
+                
+                <div>
+                  <Label className="block text-sm font-medium text-black dark:text-white mb-2">
+                    Select Voice
+                  </Label>
+                  <Select value={selectedVoice} onValueChange={setSelectedVoice}>
+                    <SelectTrigger className="w-full dark:bg-[#121212] border-gray-300 dark:border-gray-700 text-white">
+                      <SelectValue placeholder="Select a voice" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
+                      {voices.map((voice) => (
+                        <SelectItem 
+                          key={voice.id} 
+                          value={voice.id}
+                          className="text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700"
+                        >
+                          {voice.name} {voice.description && `- ${voice.description}`}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <Button 
+                  onClick={generateScript}
+                  disabled={isGenerating || !input.trim()}
+                  className="w-full bg-orange-500 hover:bg-orange-600 text-white"
+                >
+                  {isGenerating ? "Generating..." : "Generate Script"}
+                </Button>
+              </div>
+            </div>
+
+            {generatedScript && (
+              <div className="bg-white dark:bg-[#121212] border border-gray-200 dark:border-gray-800 rounded-lg p-8 mb-8 shadow-lg">
+                <h2 className="text-xl font-bold mb-6 text-white">Script Preview</h2>
+                <Textarea
+                  value={generatedScript}
+                  readOnly
+                  className="w-full h-40 mb-4 p-2 border rounded bg-gray-50 dark:bg-[#121212] text-gray-900 dark:text-white border-gray-300 dark:border-gray-700"
+                />
+                <div className="flex justify-end space-x-4">
+                  {currentScriptAudio && (
+                    <>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => togglePlay(currentScriptAudio.filename)}
+                        className="flex items-center"
+                      >
+                        {isPlaying[currentScriptAudio.filename] ? (
+                          <Pause className="w-4 h-4 mr-2" />
+                        ) : (
+                          <Play className="w-4 h-4 mr-2" />
+                        )}
+                        {isPlaying[currentScriptAudio.filename] ? 'Pause' : 'Play'}
+                      </Button>
+                      <audio
+                        ref={el => audioRefs.current[currentScriptAudio.filename] = el}
+                        src={currentScriptAudio.url}
+                        onEnded={() => handleAudioEnd(currentScriptAudio.filename)}
+                        className="hidden"
+                      />
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => downloadAudio(currentScriptAudio.url, currentScriptAudio.filename)}
+                        className="flex items-center"
+                      >
+                        <Download className="w-4 h-4 mr-2" />
+                        Download Audio
+                      </Button>
+                    </>
+                  )}
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="flex items-center text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
+                    onClick={() => copyScript(generatedScript)}
+                  >
+                    <Copy className="w-4 h-4 mr-2" />
+                    Copy Script
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="flex items-center text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
+                    onClick={downloadScript}
                   >
                     <Download className="w-4 h-4 mr-2" />
-                    Download Audio
+                    Download Script
                   </Button>
-                </>
-              )}
-              <Button 
-                variant="outline" 
-                size="sm" 
-                className="flex items-center text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
-                onClick={() => copyScript(generatedScript)}
-              >
-                <Copy className="w-4 h-4 mr-2" />
-                Copy Script
-              </Button>
-              <Button 
-                variant="outline" 
-                size="sm" 
-                className="flex items-center text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
-                onClick={downloadScript}
-              >
-                <Download className="w-4 h-4 mr-2" />
-                Download Script
-              </Button>
-            </div>
-          </div>
-          
-          <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-6 mt-6">
-            <h2 className="text-xl font-semibold mb-4 text-gray-900 dark:text-white">Script History</h2>
-            <div className="grid grid-cols-1 gap-4">
-              {paginate(sortedScriptHistory).map(script => (
-                <div key={script.id} className="border border-gray-200 dark:text-white dark:border-gray-700 rounded-lg p-4 bg-gray-50 dark:bg-gray-900">
-                  <div className="mb-4">
-                    {editingScript === script.id ? (
-                      <div className="space-y-2">
-                        <Textarea
-                          value={editedContent}
-                          onChange={(e) => setEditedContent(e.target.value)}
-                          className="w-full min-h-[100px] "
-                        />
-                        <div className="flex space-x-2">
-                          <Button 
-                            variant="outline" 
-                            size="sm" 
-                            onClick={() => saveEdit(script.id)}
-                          >
-                            Save
-                          </Button>
-                          <Button 
-                            variant="outline" 
-                            size="sm" 
-                            onClick={() => setEditingScript(null)}
-                          >
-                            Cancel
-                          </Button>
+                </div>
+              </div>
+            )}
+
+            <div className="bg-white dark:bg-[#121212] border border-gray-200 dark:border-gray-800 rounded-lg p-8 shadow-lg">
+              <h2 className="text-xl font-bold mb-6 text-black dark:text-white">Script History</h2>
+              <div className="grid grid-cols-1 gap-4">
+                {paginate(sortedScriptHistory).map(script => (
+                  <div key={script.id} className="border  border-gray-200 dark:border-gray-700 rounded-lg p-4 bg-gray-50 dark:bg-[#121212] hover:bg-gray-100 dark:hover:bg-[#00000038] transition-colors duration-200">
+                    <div className="mb-4 ">
+                      {editingScript === script.id ? (
+                        <div className="space-y-2 ">
+                          <Textarea
+                            value={editedContent}
+                            onChange={(e) => setEditedContent(e.target.value)}
+                            className="w-full min-h-[100px] "
+                          />
+                          <div className="flex space-x-2">
+                            <Button 
+                              variant="outline" 
+                              size="sm" 
+                              onClick={() => saveEdit(script.id)}
+                            >
+                              Save
+                            </Button>
+                            <Button 
+                              variant="outline" 
+                              size="sm" 
+                              onClick={() => setEditingScript(null)}
+                            >
+                              Cancel
+                            </Button>
+                          </div>
                         </div>
-                      </div>
-                    ) : (
-                      formatScript(script.script)
-                    )}
-                  </div>
-                  <div className="flex justify-between items-center mt-4">
-                    <p className="text-sm text-gray-400">
-                      {formatDate(script.createdAt)}
-                      {script.updatedAt && ` (Updated: ${formatDate(script.updatedAt)})`}
-                    </p>
-                    <div className="flex space-x-2">
-                      {hasAudio(script) ? (
-                        <>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => togglePlay(script.audioFilename)}
-                            className="flex items-center  text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
-                          >
-                            {isPlaying[script.audioFilename] ? (
-                              <Pause className="w-4 h-4" />
-                            ) : (
-                              <Play className="w-4 h-4" />
-                            )}
-                            <audio
-                              ref={el => audioRefs.current[script.audioFilename] = el}
-                              src={script.audioUrl}
-                              onEnded={() => handleAudioEnd(script.audioFilename)}
-                              className="hidden"
-                            />
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => downloadAudio(script.audioUrl, script.audioFilename)}
-                            className="flex items-center  text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
-                          >
-                            <Download className="w-4 h-4" />
-                          </Button>
-                        </>
                       ) : (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => generateAudioForScript(script)}
-                          disabled={generatingAudioForScript[script.id]}
-                          className="flex items-center  text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700" 
-                        >
-                          {generatingAudioForScript[script.id] ? (
-                            <>
-                              <Volume2 className="w-4 h-4 mr-2 animate-pulse  text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700" />
-                              Generating...
-                            </>
-                          ) : (
-                            <>
-                              <Volume2 className="w-4 h-4 mr-2  text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700" />
-                              Generate Audio
-                            </>
-                          )}
-                        </Button>
+                        formatScript(script.script)
                       )}
-                      
-                      <Button 
-                        variant="outline" 
-                        size="sm"
-                        className="flex items-center text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
-                        onClick={() => startEditing(script)}
-                        disabled={editingScript === script.id}
-                      >
-                        <Edit className="w-4 h-4 mr-2" />
-                        Edit
-                      </Button>
-                      <Button 
-                        variant="outline" 
-                        size="sm"
-                        className="flex items-center text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
-                        onClick={() => regenerateScript(script)}
-                        disabled={isGenerating}
-                      >
-                        <RefreshCw className="w-4 h-4 mr-2" />
-                        Regenerate
-                      </Button>
-                      <Button 
-                        variant="outline" 
-                        size="sm"
-                        className="flex items-center text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-500/10"
-                        onClick={() => deleteScript(script.id)}
-                      >
-                        <Trash2 className="w-4 h-4 mr-2" />
-                        Delete
-                      </Button>
-                      <Button 
-                        variant="outline" 
-                        size="sm"
-                        className="flex items-center text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
-                        onClick={() => copyScript(script.script)}
-                      >
-                        <Copy className="w-4 h-4 mr-2" />
-                        Copy
-                      </Button>
+                    </div>
+                    <div className="flex justify-between items-center mt-4">
+                      <p className="text-sm text-">
+                        {formatDate(script.createdAt)}
+                        {script.updatedAt && ` (Updated: ${formatDate(script.updatedAt)})`}
+                      </p>
+                      <div className="flex space-x-2">
+                        {hasAudio(script) ? (
+                          <>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => togglePlay(script.audioFilename)}
+                              className="flex items-center  text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-[#121212]"
+                            >
+                              {isPlaying[script.audioFilename] ? (
+                                <Pause className="w-4 h-4" />
+                              ) : (
+                                <Play className="w-4 h-4" />
+                              )}
+                              <audio
+                                ref={el => audioRefs.current[script.audioFilename] = el}
+                                src={script.audioUrl}
+                                onEnded={() => handleAudioEnd(script.audioFilename)}
+                                className="hidden"
+                              />
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => downloadAudio(script.audioUrl, script.audioFilename)}
+                              className="flex items-center  text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
+                            >
+                              <Download className="w-4 h-4" />
+                            </Button>
+                          </>
+                        ) : (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => generateAudioForScript(script)}
+                            disabled={generatingAudioForScript[script.id]}
+                            className="flex items-center  text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700" 
+                          >
+                            {generatingAudioForScript[script.id] ? (
+                              <>
+                                <Volume2 className="w-4 h-4 mr-2 animate-pulse  text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700" />
+                                Generating...
+                              </>
+                            ) : (
+                              <>
+                                <Volume2 className="w-4 h-4 mr-2  text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700" />
+                                Generate Audio
+                              </>
+                            )}
+                          </Button>
+                        )}
+                        
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          className="flex items-center text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
+                          onClick={() => startEditing(script)}
+                          disabled={editingScript === script.id}
+                        >
+                          <Edit className="w-4 h-4 mr-2" />
+                          Edit
+                        </Button>
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          className="flex items-center text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
+                          onClick={() => regenerateScript(script)}
+                          disabled={isGenerating}
+                        >
+                          <RefreshCw className="w-4 h-4 mr-2" />
+                          Regenerate
+                        </Button>
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          className="flex items-center text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-500/10"
+                          onClick={() => deleteScript(script.id)}
+                        >
+                          <Trash2 className="w-4 h-4 mr-2" />
+                          Delete
+                        </Button>
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          className="flex items-center text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
+                          onClick={() => copyScript(script.script)}
+                        >
+                          <Copy className="w-4 h-4 mr-2" />
+                          Copy
+                        </Button>
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
           </div>
         </div>

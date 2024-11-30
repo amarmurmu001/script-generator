@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Wand2, Rocket, Zap, ChevronDown, ChevronUp } from "lucide-react"
@@ -14,6 +14,32 @@ export default function LandingPage() {
   const [isValid, setIsValid] = useState(true)
   const [openFaq, setOpenFaq] = useState(null)
   const { user } = useAuth();
+  const [isDarkMode, setIsDarkMode] = useState(false)
+
+  useEffect(() => {
+    // Initial theme check
+    const isDark = document.documentElement.classList.contains('dark');
+    setIsDarkMode(isDark);
+
+    // Create observer for theme changes
+    const observer = new MutationObserver((mutations) => {
+      mutations.forEach((mutation) => {
+        if (mutation.attributeName === 'class') {
+          const isDark = document.documentElement.classList.contains('dark');
+          setIsDarkMode(isDark);
+        }
+      });
+    });
+
+    // Start observing
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ['class'],
+    });
+
+    // Cleanup
+    return () => observer.disconnect();
+  }, []);
 
   const handleEmailChange = (e) => {
     setEmail(e.target.value)
@@ -44,53 +70,59 @@ export default function LandingPage() {
   ]
 
   return (
-    <div className={cn(
-      "flex flex-col min-h-screen",
-      "bg-gradient-to-b from-gray-50 to-white",
-      "dark:from-gray-900 dark:to-gray-800",
-      "text-gray-900 dark:text-gray-100",
-      "transition-colors duration-300"
-    )}>
+    <div className="flex flex-col min-h-screen bg-background">
       <main className="flex-1">
-        <section className="w-full py-12 md:py-24 lg:py-32 xl:py-48 bg-gradient-to-r from-orange-500 to-orange-700 text-white">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full">
-            <div className="flex flex-col items-center space-y-4 text-center">
+        <section className="relative py-24 overflow-hidden">
+          <div className="absolute inset-0 -z-10">
+            <div className="absolute inset-0 bg-gradient-to-b from-orange-500/5 to-transparent" />
+            <div className="grid grid-cols-6 gap-6 h-full w-full opacity-20">
+              {[...Array(24)].map((_, i) => (
+                <div key={i} className="aspect-square bg-orange-500/10 rounded-lg transform hover:scale-105 transition-transform" />
+              ))}
+            </div>
+          </div>
+
+          <div className="container mx-auto">
+            <div className="flex flex-col items-center space-y-8 text-center">
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.5 }}
-                className="space-y-2"
+                className="space-y-4 max-w-3xl"
               >
+                <span className="inline-block text-sm font-medium text-orange-500 dark:text-orange-400 mb-2">
+                  The future of content creation
+                </span>
                 <h1 className="text-4xl font-bold tracking-tighter sm:text-5xl md:text-6xl lg:text-7xl">
-                  Create Engaging Video Scripts in Minutes
+                  Essential tools for <br />
+                  <span className="text-gradient">world-changers</span>
                 </h1>
-                <p className="mx-auto max-w-[600px] text-gray-200 md:text-xl/relaxed lg:text-base/relaxed xl:text-xl/relaxed">
-                  Transform your content creation with AI-powered script generation
+                <p className="text-lg text-muted-foreground max-w-[600px] mx-auto">
+                  Essential tools that will be provided to empower change-makers to create better content
                 </p>
               </motion.div>
-              {!user && (
+
+              {!user ? (
                 <motion.div
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.5, delay: 0.2 }}
-                  className="space-x-4"
+                  className="flex flex-col sm:flex-row gap-4"
                 >
                   <Link href="/signup">
-                    <Button size="lg" className="bg-white text-orange-600 hover:bg-gray-100">
-                      Get Started
+                    <Button size="lg" className="bg-orange-500 text-white hover:bg-orange-600 min-w-[200px]">
+                      Request a Demo
                     </Button>
                   </Link>
                 </motion.div>
-              )}
-              {user && (
+              ) : (
                 <motion.div
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.5, delay: 0.2 }}
-                  className="space-x-4"
                 >
                   <Link href="/scriptgenerator">
-                    <Button size="lg" className="bg-white text-orange-600 hover:bg-gray-100">
+                    <Button size="lg" className="bg-orange-500 text-white hover:bg-orange-600 min-w-[200px]">
                       Go to Script Generator
                     </Button>
                   </Link>
@@ -99,9 +131,33 @@ export default function LandingPage() {
             </div>
           </div>
         </section>
-        <section id="features" className="w-full py-12 md:py-24 lg:py-32">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full">
-            <h2 className="text-3xl font-bold tracking-tighter sm:text-5xl text-center mb-12">Key Features</h2>
+
+        <section className="py-12">
+          <div className="container mx-auto px-4">
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 0.3 }}
+              className="relative rounded-2xl overflow-hidden w-[80%] mx-auto [box-shadow:0_-20px_30px_-15px_rgba(0,0,0,0.1)]"
+            >
+              <div 
+                className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-background via-background/80 to-transparent z-10" 
+              />
+              <img 
+                src={isDarkMode ? "/image.png" : "/light.png"}
+                alt="ScriptGenius Dashboard" 
+                className="w-full h-auto rounded-2xl border border-gray-200 dark:border-gray-800 transition-opacity duration-300"
+                key={isDarkMode ? "dark" : "light"}
+              />
+            </motion.div>
+          </div>
+        </section>
+
+        <section id="features" className="w-full py-12 md:py-24 lg:py-32 bg-background">
+          <div className="container mx-auto">
+            <h2 className="text-3xl font-bold tracking-tighter sm:text-5xl text-center mb-12 text-gradient">
+              Key Features
+            </h2>
             <div className="grid gap-10 sm:grid-cols-2 md:grid-cols-3">
               {[
                 { icon: Wand2, title: "AI-Powered Generation", description: "Our advanced AI creates unique, engaging scripts tailored to your needs." },
@@ -111,18 +167,18 @@ export default function LandingPage() {
                 <motion.div
                   key={index}
                   whileHover={{ scale: 1.05 }}
-                  className="flex flex-col items-center text-center p-6 bg-white rounded-lg shadow-lg dark:bg-gray-800"
+                  className="flex flex-col items-center text-center p-6 bg-card rounded-lg glow"
                 >
-                  <feature.icon className="h-12 w-12 mb-4 text-orange-500 dark:text-orange-400" />
-                  <h3 className="text-xl font-bold mb-2">{feature.title}</h3>
-                  <p className="text-gray-500 dark:text-gray-400">{feature.description}</p>
+                  <feature.icon className="h-12 w-12 mb-4 text-gradient" />
+                  <h3 className="text-xl font-bold mb-2 text-gradient">{feature.title}</h3>
+                  <p className="text-muted-foreground">{feature.description}</p>
                 </motion.div>
               ))}
             </div>
           </div>
         </section>
-        <section id="pricing" className="w-full py-12 md:py-24 lg:py-32 bg-gray-100 dark:bg-gray-900">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full">
+        <section id="pricing" className="w-full py-12 md:py-24 lg:py-32 bg-gray-100 dark:bg-[#121212]">
+          <div className="container mx-auto">
             <h2 className="text-3xl font-bold tracking-tighter sm:text-5xl text-center mb-12">Simple Pricing</h2>
             <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
               {[
@@ -135,7 +191,7 @@ export default function LandingPage() {
                   whileHover={{ scale: 1.03 }}
                   className={cn(
                     "flex flex-col p-6 rounded-lg shadow-lg",
-                    index === 1 ? "bg-orange-500 text-white" : "bg-white dark:bg-gray-800"
+                    index === 1 ? "bg-orange-500 text-white" : "bg-white dark:bg-[#171717]"
                   )}
                 >
                   <h3 className="text-2xl font-bold mb-4">{plan.title}</h3>
@@ -173,8 +229,8 @@ export default function LandingPage() {
             </div>
           </div>
         </section>
-        <section id="faq" className="w-full py-12 md:py-24 lg:py-32 bg-gray-50 dark:bg-gray-900">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <section id="faq" className="w-full py-12 md:py-24 lg:py-32 bg-gray-50 dark:bg-[#121212]">
+          <div className="container mx-auto">
             <h2 className="text-3xl font-bold tracking-tighter sm:text-5xl text-center mb-12">
               Frequently Asked Questions
             </h2>
@@ -182,7 +238,7 @@ export default function LandingPage() {
               {faqs.map((faq, index) => (
                 <div
                   key={index}
-                  className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700"
+                  className="bg-white dark:bg-[#171717] rounded-lg shadow-sm border border-gray-200 dark:border-gray-700"
                 >
                   <button
                     onClick={() => setOpenFaq(openFaq === index ? null : index)}
@@ -192,9 +248,9 @@ export default function LandingPage() {
                       {faq.question}
                     </h3>
                     {openFaq === index ? (
-                      <ChevronUp className="w-5 h-5 text-gray-500" />
+                      <ChevronUp className="w-5 h-5 text-white" />
                     ) : (
-                      <ChevronDown className="w-5 h-5 text-gray-500" />
+                      <ChevronDown className="w-5 h-5 text-white" />
                     )}
                   </button>
                   {openFaq === index && (
@@ -211,7 +267,7 @@ export default function LandingPage() {
         </section>
         {!user && (
           <section id="cta" className="w-full py-12 md:py-24 lg:py-32 bg-orange-500 dark:bg-orange-600 text-white">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full">
+            <div className="container mx-auto">
               <div className="flex flex-col items-center space-y-4 text-center">
                 <div className="space-y-2">
                   <h2 className="text-3xl font-bold tracking-tighter sm:text-5xl">
@@ -252,19 +308,93 @@ export default function LandingPage() {
           </section>
         )}
       </main>
-      <footer className="py-6 w-full shrink-0 border-t bg-background">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full flex flex-col sm:flex-row items-center justify-between gap-4">
-          <p className="text-xs text-gray-500 dark:text-gray-400">
-            © 2024 ScriptGenius. All rights reserved.
-          </p>
-          <nav className="flex gap-4 sm:gap-6">
-            <Link className="text-xs hover:underline underline-offset-4" href="#">
-              Terms of Service
-            </Link>
-            <Link className="text-xs hover:underline underline-offset-4" href="#">
-              Privacy Policy
-            </Link>
-          </nav>
+      <footer className="py-12 w-full bg-[#121212] text-white">
+        <div className="container mx-auto">
+          {/* Top Section */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 mb-12">
+            {/* Brand Column */}
+            <div>
+              <Link href="/" className="inline-block mb-6">
+                <span className="text-2xl font-bold text-white">
+                  ScriptGenius
+                </span>
+              </Link>
+              <p className="text-gray-300 text-sm">
+                Transform your content creation with AI-powered script generation
+              </p>
+            </div>
+
+            {/* Products Column */}
+            <div>
+              <h3 className="text-sm font-semibold uppercase tracking-wider mb-4">
+                Products
+              </h3>
+              <ul className="space-y-3">
+                <li>
+                  <Link href="/#features" className="text-gray-300 hover:text-white transition-colors">
+                    Features
+                  </Link>
+                </li>
+                <li>
+                  <Link href="/#pricing" className="text-gray-300 hover:text-white transition-colors">
+                    Pricing
+                  </Link>
+                </li>
+                <li>
+                  <Link href="/#faq" className="text-gray-300 hover:text-white transition-colors">
+                    FAQ
+                  </Link>
+                </li>
+              </ul>
+            </div>
+
+            {/* Legal Column */}
+            <div>
+              <h3 className="text-sm font-semibold uppercase tracking-wider mb-4">
+                Legal
+              </h3>
+              <ul className="space-y-3">
+                <li>
+                  <Link href="/privacy" className="text-gray-300 hover:text-white transition-colors">
+                    Privacy Policy
+                  </Link>
+                </li>
+                <li>
+                  <Link href="/terms" className="text-gray-300 hover:text-white transition-colors">
+                    Terms of Service
+                  </Link>
+                </li>
+              </ul>
+            </div>
+
+            {/* Want to buy? Column */}
+            <div>
+              <h3 className="text-sm font-semibold uppercase tracking-wider mb-4">
+                Want to buy?
+              </h3>
+              <Link 
+                href="/signup" 
+                className="inline-block px-6 py-2 bg-white text-[#1B3530] rounded-full font-medium hover:bg-gray-100 transition-colors"
+              >
+                Request a Demo
+              </Link>
+            </div>
+          </div>
+
+          {/* Bottom Section */}
+          <div className="border-t border-gray-700 pt-8 flex flex-col md:flex-row justify-between items-center gap-4">
+            <p className="text-sm text-gray-300">
+              © 2024 ScriptGenius. All rights reserved.
+            </p>
+            <div className="flex items-center gap-6">
+              <Link href="/privacy" className="text-sm text-gray-300 hover:text-white transition-colors">
+                Privacy
+              </Link>
+              <Link href="/terms" className="text-sm text-gray-300 hover:text-white transition-colors">
+                Terms
+              </Link>
+            </div>
+          </div>
         </div>
       </footer>
     </div>

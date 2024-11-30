@@ -54,7 +54,27 @@ module.exports = {
   			lg: 'var(--radius)',
   			md: 'calc(var(--radius) - 2px)',
   			sm: 'calc(var(--radius) - 4px)'
-  		}
+  		},
+  		backgroundImage: {
+  			'gradient-radial': 'radial-gradient(var(--tw-gradient-stops))',
+  			'gradient-conic': 'conic-gradient(from 180deg at 50% 50%, var(--tw-gradient-stops))',
+  			'gradient-shine': 'linear-gradient(60deg, transparent 25%, rgba(255, 255, 255, 0.1) 50%, transparent 75%)',
+  			'gradient-glow': 'linear-gradient(to right, rgba(249, 115, 22, 0.4), rgba(234, 88, 12, 0.4))',
+  		},
+  		animation: {
+  			'shine': 'shine 2s linear infinite',
+  			'float': 'float 6s ease-in-out infinite',
+  		},
+  		keyframes: {
+  			shine: {
+  				'0%': { backgroundPosition: '200% center' },
+  				'100%': { backgroundPosition: '-200% center' },
+  			},
+  			float: {
+  				'0%, 100%': { transform: 'translateY(0)' },
+  				'50%': { transform: 'translateY(-10px)' },
+  			},
+  		},
   	}
   },
   plugins: [require("tailwindcss-animate")],
