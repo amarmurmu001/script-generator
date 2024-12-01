@@ -8,7 +8,8 @@ import Link from "next/link"
 import { motion } from "framer-motion"
 import { cn } from "@/lib/utils"
 import { useAuth } from '@/lib/auth-context'
-import { useRouter } from 'next/navigation';
+import { useRouter } from 'next/navigation'
+import { toast } from 'react-hot-toast'
 
 export default function LandingPage() {
   const [email, setEmail] = useState("")
@@ -74,14 +75,14 @@ export default function LandingPage() {
   const plans = [
     { 
       id: 'plan_starter',
-      razorpayPlanId: 'plan_XXXXX', // Replace with actual Razorpay plan ID
+      razorpayPlanId: process.env.NEXT_PUBLIC_RAZORPAY_PLAN_STARTER_ID,
       title: "Starter", 
-      price: "₹699", 
+      price: "₹499", 
       features: ["50 scripts per month", "5 themes", "Basic support"]
     },
     { 
       id: 'plan_pro',
-      razorpayPlanId: 'plan_YYYYY', // Replace with actual Razorpay plan ID
+      razorpayPlanId: process.env.NEXT_PUBLIC_RAZORPAY_PLAN_PRO_ID,
       title: "Pro", 
       price: "₹1999", 
       features: ["Unlimited scripts", "All themes", "Priority support", "Custom themes"]
@@ -94,7 +95,7 @@ export default function LandingPage() {
     }
   ];
 
-  const handleSubscription = async (plan) => {
+  const handleSubscribe = async (plan) => {
     if (!user) {
       router.push('/login');
       return;
@@ -118,13 +119,34 @@ export default function LandingPage() {
       });
 
       const data = await response.json();
-      if (data.error) throw new Error(data.error);
+      
+      if (data.error) {
+        throw new Error(data.error);
+      }
+
+      if (!data.shortUrl) {
+        throw new Error('No checkout URL received');
+      }
+
+      // Store the return URL in localStorage before redirecting
+      localStorage.setItem('subscription_return_url', '/subscription');
 
       // Redirect to Razorpay checkout page
       window.location.href = data.shortUrl;
     } catch (error) {
       console.error('Subscription error:', error);
-      // Show error notification to user
+      toast.error(error.message || 'Failed to create subscription', {
+        style: {
+          border: '1px solid #f87171',
+          padding: '16px',
+          color: '#ef4444',
+          backgroundColor: isDarkMode ? '#1f2937' : '#fff',
+        },
+        iconTheme: {
+          primary: '#ef4444',
+          secondary: '#fff',
+        },
+      });
     }
   };
 
@@ -271,12 +293,13 @@ export default function LandingPage() {
                     ))}
                   </ul>
                   <Button 
-                    onClick={() => handleSubscription(plan)}
+                    onClick={() => handleSubscribe(plan)}
                     className={cn(
                       "w-full",
                       index === 1 ? "bg-white text-orange-500 hover:bg-gray-100" : 
                       (index === 2 ? "bg-orange-500 text-white hover:bg-orange-600" : "")
                     )}
+                    disabled={!user}
                   >
                     {plan.id === 'plan_enterprise' ? "Contact Sales" : "Subscribe Now"}
                   </Button>

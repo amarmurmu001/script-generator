@@ -2,6 +2,7 @@ import Navbar from "@/components/Navbar"
 import localFont from "next/font/local";
 import "./globals.css";
 import { AuthProvider } from '@/lib/auth-context';
+import { Toaster } from "react-hot-toast";
 
 const geistSans = localFont({
   src: "./fonts/GeistVF.woff",
@@ -26,6 +27,7 @@ export default function RootLayout({ children }) {
         <AuthProvider>
           <Navbar />
           {children}
+          <Toaster position="bottom-center" />
         </AuthProvider>
       </body>
     </html>

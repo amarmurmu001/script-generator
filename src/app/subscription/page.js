@@ -1,12 +1,13 @@
 "use client";
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/lib/auth-context';
-import { getUserSubscription } from '@/lib/subscription';
+import { getUserSubscription, cancelSubscription } from '@/lib/subscription';
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card";
 import { useRouter } from 'next/navigation';
 import AuthCheck from '@/components/auth-check';
 import { format } from 'date-fns';
+import { toast } from 'react-hot-toast';
 
 export default function SubscriptionPage() {
   const [subscription, setSubscription] = useState(null);
@@ -20,8 +21,18 @@ export default function SubscriptionPage() {
         try {
           const sub = await getUserSubscription(user.uid);
           setSubscription(sub);
+          
+          // Check if this is a redirect from payment
+          const urlParams = new URLSearchParams(window.location.search);
+          const razorpayPaymentId = urlParams.get('razorpay_payment_id');
+          const razorpaySubscriptionId = urlParams.get('razorpay_subscription_id');
+          
+          if (razorpayPaymentId && razorpaySubscriptionId) {
+            toast.success('Subscription activated successfully!');
+          }
         } catch (error) {
           console.error('Error fetching subscription:', error);
+          toast.error('Error loading subscription details');
         } finally {
           setLoading(false);
         }
@@ -33,6 +44,37 @@ export default function SubscriptionPage() {
 
   const handleManageSubscription = () => {
     router.push('/pricing');
+  };
+
+  const handleCancelSubscription = async () => {
+    if (!subscription) return;
+
+    try {
+      // Call Razorpay API to cancel subscription
+      const response = await fetch('/api/cancel-subscription', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          subscriptionId: subscription.subscriptionId,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to cancel subscription');
+      }
+
+      // Update local state
+      setSubscription(prev => ({
+        ...prev,
+        status: 'cancelled'
+      }));
+
+    } catch (error) {
+      console.error('Error cancelling subscription:', error);
+      // Handle error (show error message to user)
+    }
   };
 
   if (loading) {
@@ -71,12 +113,22 @@ export default function SubscriptionPage() {
               )}
             </CardContent>
             <CardFooter>
-              <Button 
-                variant="outline" 
-                onClick={handleManageSubscription}
-              >
-                Manage Subscription
-              </Button>
+              <div className="space-x-3">
+                <Button 
+                  variant="outline" 
+                  onClick={handleManageSubscription}
+                >
+                  Change Plan
+                </Button>
+                {subscription?.status === 'active' && (
+                  <Button 
+                    variant="destructive"
+                    onClick={handleCancelSubscription}
+                  >
+                    Cancel Subscription
+                  </Button>
+                )}
+              </div>
             </CardFooter>
           </Card>
         ) : (
