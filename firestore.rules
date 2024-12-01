@@ -6,10 +6,11 @@ service cloud.firestore {
     }
     
     match /subscriptions/{subscriptionId} {
-      allow read: if request.auth != null && resource.data.userId == request.auth.uid;
-      allow create: if false;
-      allow update: if false;
-      // Server-side operations will bypass these rules
+      allow read: if request.auth != null && 
+        (resource.data.userId == request.auth.uid || 
+         subscriptionId == request.auth.uid);
+      allow create: if false;  // Only allow server-side creation
+      allow update: if false;  // Only allow server-side updates
     }
   }
 } 

@@ -105,19 +105,14 @@ export default function PricingPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="text-center mb-12">
-          <h1 className="text-4xl font-bold text-gray-900 dark:text-white mb-4">
-            Simple, Transparent Pricing
+    <div className="min-h-screen bg-gray-50 dark:bg-[#121212] py-12">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        {/* Pricing Toggle */}
+        <div className="flex flex-col items-center mb-12">
+          <h1 className="text-4xl font-bold text-gray-900 dark:text-white mb-8 text-center">
+            Simple, transparent pricing
           </h1>
-          <p className="text-xl text-gray-600 dark:text-gray-300">
-            Choose the perfect plan for your needs
-          </p>
-          
-          {/* Billing Toggle */}
-          <div className="mt-6 flex items-center justify-center gap-3">
+          <div className="flex items-center gap-3 bg-gray-100 dark:bg-[#171717] p-1 rounded-lg">
             <span className={`text-sm ${!isAnnual ? 'text-gray-900 dark:text-white font-semibold' : 'text-gray-500'}`}>
               Monthly
             </span>
@@ -137,24 +132,26 @@ export default function PricingPage() {
               Annual (Save 20%)
             </span>
           </div>
+          {isAnnual && (
+            <p className="mt-3 text-sm text-orange-500 dark:text-orange-400">
+              Save 20% with annual billing
+            </p>
+          )}
         </div>
 
-        {/* Pricing Cards */}
-        <div className="grid md:grid-cols-3 gap-8 max-w-6xl mx-auto">
+        {/* Plans Grid */}
+        <div className="grid md:grid-cols-3 gap-8 mb-12">
           {plans.map((plan, index) => (
             <motion.div
               key={plan.id}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.3, delay: index * 0.1 }}
-              className={`relative rounded-2xl bg-white dark:bg-gray-800 shadow-xl ${
-                plan.popular ? 'ring-2 ring-orange-500' : ''
+              className={`relative rounded-2xl bg-white dark:bg-[#171717] shadow-sm transition-all duration-200 ${
+                plan.popular ? 'ring-2 ring-orange-500 dark:ring-orange-400' : ''
               }`}
             >
               {plan.popular && (
-                <div className="absolute -top-5 left-0 right-0 mx-auto w-32 rounded-full bg-orange-500 px-3 py-1 text-sm font-medium text-white text-center">
-                  Most Popular
-                </div>
+                <span className="absolute top-0 right-6 -translate-y-1/2 px-3 py-0.5 bg-orange-500 dark:bg-orange-400 text-white text-sm font-medium rounded-full">
+                  Popular
+                </span>
               )}
 
               <div className="p-8">
@@ -222,7 +219,7 @@ export default function PricingPage() {
             ].map((faq, index) => (
               <div
                 key={index}
-                className="bg-white dark:bg-gray-800 rounded-lg p-6 shadow-sm"
+                className="bg-white dark:bg-[#171717] rounded-lg p-6 shadow-sm"
               >
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
                   {faq.question}

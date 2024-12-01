@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Wand2, Rocket, Zap, ChevronDown, ChevronUp } from "lucide-react"
+import { Wand2, Rocket, Zap, ChevronDown, ChevronUp, Check } from "lucide-react"
 import Link from "next/link"
 import { motion } from "framer-motion"
 import { cn } from "@/lib/utils"
@@ -77,21 +77,50 @@ export default function LandingPage() {
       id: 'plan_starter',
       razorpayPlanId: process.env.NEXT_PUBLIC_RAZORPAY_PLAN_STARTER_ID,
       title: "Starter", 
-      price: "₹499", 
-      features: ["50 scripts per month", "5 themes", "Basic support"]
+      price: "₹499",
+      description: "Perfect for individuals getting started",
+      features: [
+        "50 scripts per month",
+        "5 themes",
+        "Basic support",
+        "24/7 email support",
+        "Access to basic templates"
+      ],
+      accent: "bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-900/10"
     },
     { 
       id: 'plan_pro',
       razorpayPlanId: process.env.NEXT_PUBLIC_RAZORPAY_PLAN_PRO_ID,
       title: "Pro", 
-      price: "₹1999", 
-      features: ["Unlimited scripts", "All themes", "Priority support", "Custom themes"]
+      price: "₹1999",
+      description: "Best for professionals and growing teams",
+      features: [
+        "Unlimited scripts",
+        "All themes",
+        "Priority support",
+        "Custom themes",
+        "Advanced analytics",
+        "Custom branding",
+        "API access"
+      ],
+      popular: true,
+      accent: "bg-gradient-to-br from-orange-50 to-orange-100 dark:from-orange-900/20 dark:to-orange-900/10"
     },
     { 
       id: 'plan_enterprise',
       title: "Enterprise", 
-      price: "Custom", 
-      features: ["Unlimited everything", "Dedicated account manager", "24/7 phone support", "Custom integrations"]
+      price: "Custom",
+      description: "Custom solutions for large organizations",
+      features: [
+        "Unlimited everything",
+        "Dedicated account manager",
+        "24/7 phone support",
+        "Custom integrations",
+        "SLA guarantees",
+        "Custom features",
+        "Onboarding assistance"
+      ],
+      accent: "bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900/20 dark:to-purple-900/10"
     }
   ];
 
@@ -258,52 +287,82 @@ export default function LandingPage() {
             </div>
           </div>
         </section>
-        <section id="pricing" className="w-full py-12 md:py-24 lg:py-32 bg-gray-100 dark:bg-[#121212]">
-          <div className="container mx-auto">
-            <h2 className="text-3xl font-bold tracking-tighter sm:text-5xl text-center mb-12">Simple Pricing</h2>
-            <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
-              {plans.map((plan, index) => (
-                <motion.div
-                  key={index}
-                  whileHover={{ scale: 1.03 }}
-                  className={cn(
-                    "flex flex-col p-6 rounded-lg shadow-lg",
-                    index === 1 ? "bg-orange-500 text-white" : "bg-white dark:bg-[#171717]"
-                  )}
+        <section id="pricing" className="py-24 bg-gray-50 dark:bg-[#121212]">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="text-center max-w-3xl mx-auto mb-16">
+              <h2 className="text-4xl font-bold text-gray-900 dark:text-white mb-4">
+                Simple, transparent pricing
+              </h2>
+              <p className="text-lg text-gray-600 dark:text-gray-400">
+                Choose the perfect plan for your needs. All plans include a 14-day free trial.
+              </p>
+            </div>
+
+            <div className="grid lg:grid-cols-3 gap-8 max-w-7xl mx-auto">
+              {plans.map((plan) => (
+                <div
+                  key={plan.id}
+                  className={`relative rounded-2xl overflow-hidden transition-transform duration-300 hover:scale-[1.02] ${
+                    plan.popular ? 'ring-2 ring-orange-500 dark:ring-orange-400' : ''
+                  }`}
                 >
-                  <h3 className="text-2xl font-bold mb-4">{plan.title}</h3>
-                  <p className="text-4xl font-bold mb-4">{plan.price}<span className="text-xl font-normal">{plan.price !== "Custom" && "/month"}</span></p>
-                  <ul className="mb-6 space-y-2">
-                    {plan.features.map((feature, fIndex) => (
-                      <li key={fIndex} className="flex items-center">
-                        <svg
-                          className={cn(
-                            "w-4 h-4 mr-2",
-                            index === 1 ? "text-white" : "text-green-500"
-                          )}
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                          xmlns="http://www.w3.org/2000/svg"
-                        >
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path>
-                        </svg>
-                        {feature}
-                      </li>
-                    ))}
-                  </ul>
-                  <Button 
-                    onClick={() => handleSubscribe(plan)}
-                    className={cn(
-                      "w-full",
-                      index === 1 ? "bg-white text-orange-500 hover:bg-gray-100" : 
-                      (index === 2 ? "bg-orange-500 text-white hover:bg-orange-600" : "")
+                  {plan.popular && (
+                    <div className="absolute top-0 left-0 right-0 flex justify-center">
+                      <span className="bg-gradient-to-r from-orange-500 to-orange-600 text-white px-4 py-1 rounded-b-lg text-sm font-medium shadow-lg">
+                        Most Popular
+                      </span>
+                    </div>
+                  )}
+                  <div className={`p-8 ${plan.accent} h-full flex flex-col ${plan.popular ? 'pt-12' : ''}`}>
+                    <div className="mb-6">
+                      <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+                        {plan.title}
+                      </h3>
+                      <p className="text-sm text-gray-600 dark:text-gray-400">
+                        {plan.description}
+                      </p>
+                    </div>
+
+                    <div className="mb-6">
+                      <p className="text-4xl font-bold text-gray-900 dark:text-white">
+                        {plan.price}
+                        {plan.price !== "Custom" && (
+                          <span className="text-lg font-normal text-gray-600 dark:text-gray-400">
+                            /month
+                          </span>
+                        )}
+                      </p>
+                    </div>
+
+                    <ul className="space-y-4 mb-8 flex-grow">
+                      {plan.features.map((feature, index) => (
+                        <li key={index} className="flex items-start">
+                          <div className="rounded-full p-1 bg-orange-100 dark:bg-orange-900/20 mr-3 flex-shrink-0">
+                            <Check className="h-4 w-4 text-orange-500 dark:text-orange-400" />
+                          </div>
+                          <span className="text-gray-700 dark:text-gray-300">{feature}</span>
+                        </li>
+                      ))}
+                    </ul>
+
+                    <Button
+                      onClick={() => handleSubscribe(plan)}
+                      className={`w-full ${
+                        plan.popular
+                          ? 'bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white shadow-lg'
+                          : 'bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-900 dark:text-white border border-gray-200 dark:border-gray-700'
+                      }`}
+                      disabled={!user}
+                    >
+                      {plan.id === 'plan_enterprise' ? 'Contact Sales' : 'Get Started'}
+                    </Button>
+                    {!user && (
+                      <p className="text-xs text-center mt-2 text-gray-500 dark:text-gray-400">
+                        Please login to subscribe
+                      </p>
                     )}
-                    disabled={!user}
-                  >
-                    {plan.id === 'plan_enterprise' ? "Contact Sales" : "Subscribe Now"}
-                  </Button>
-                </motion.div>
+                  </div>
+                </div>
               ))}
             </div>
           </div>

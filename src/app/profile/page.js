@@ -96,9 +96,9 @@ export default function Profile() {
 
   return (
     <AuthCheck>
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-12">
+      <div className="min-h-screen bg-gray-50 dark:bg-[#121212] py-12">
         <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="bg-white dark:bg-gray-800 shadow rounded-lg">
+          <div className="bg-white dark:bg-[#171717] shadow rounded-lg">
             <div className="px-4 py-5 sm:p-6">
               <div className="flex justify-between items-center mb-6">
                 <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
@@ -114,13 +114,13 @@ export default function Profile() {
               </div>
 
               {error && (
-                <div className="mb-4 p-3 bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 rounded">
+                <div className="mb-4 p-3 bg-red-100 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded">
                   {error}
                 </div>
               )}
 
               {success && (
-                <div className="mb-4 p-3 bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 rounded">
+                <div className="mb-4 p-3 bg-orange-100 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400 rounded">
                   {success}
                 </div>
               )}
@@ -172,7 +172,7 @@ export default function Profile() {
                       value={profileData.bio}
                       onChange={(e) => setProfileData({ ...profileData, bio: e.target.value })}
                       disabled={!isEditing}
-                      className="shadow-sm focus:ring-orange-500 focus:border-orange-500 block w-full sm:text-sm border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-700 dark:text-white"
+                      className="shadow-sm focus:ring-orange-500 focus:border-orange-500 block w-full sm:text-sm border-gray-300 dark:border-gray-600 rounded-md dark:bg-[#202020] dark:text-white"
                       placeholder="Tell us about yourself"
                     />
                   </div>
