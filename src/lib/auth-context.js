@@ -19,7 +19,10 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       if (user) {
-        setUser(user);
+        user.reload().then(() => {
+          setUser(auth.currentUser);
+          console.log('Updated user:', auth.currentUser);
+        });
       } else {
         setUser(null);
       }

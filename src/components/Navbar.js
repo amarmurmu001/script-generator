@@ -3,7 +3,6 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Button } from "@/components/ui/button";
 import { useAuth } from '@/lib/auth-context';
-import Image from 'next/image';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -19,6 +18,17 @@ export default function Navbar() {
   const { user, logout } = useAuth();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(false);
+
+  // Debug user object
+  useEffect(() => {
+    if (user) {
+      console.log('User object:', {
+        photoURL: user.photoURL,
+        displayName: user.displayName,
+        email: user.email
+      });
+    }
+  }, [user]);
 
   useEffect(() => {
     const isDark = localStorage.getItem('darkMode') === 'true';
@@ -71,45 +81,57 @@ export default function Navbar() {
               <div className="flex items-center gap-4">
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" className="relative h-8 w-8 rounded-full">
-                      {user.photoURL ? (
-                        <Image
-                          src={user.photoURL}
-                          alt="Profile"
-                          width={32}
-                          height={32}
-                          className="w-full h-full object-cover"
-                        />
+                    <Button 
+                      variant="ghost" 
+                      size="sm"
+                      className="relative w-8 h-8 rounded-full border-2 border-gray-200 dark:border-gray-700 p-0 overflow-hidden"
+                    >
+                      {user?.photoURL ? (
+                        <div className="absolute inset-0 bg-orange-500">
+                          <img
+                            src={user.photoURL}
+                            alt="Profile"
+                            className="w-full h-full object-cover"
+                            referrerPolicy="no-referrer"
+                            onError={(e) => {
+                              e.currentTarget.style.display = 'none';
+                              e.currentTarget.parentElement.innerHTML = `
+                                <div class="w-full h-full flex items-center justify-center bg-orange-500 text-white">
+                                  ${user.email?.[0]?.toUpperCase() || 'U'}
+                                </div>
+                              `;
+                            }}
+                          />
+                        </div>
                       ) : (
-                        <div className="w-full h-full bg-orange-500 flex items-center justify-center">
-                          <span className="text-white text-sm">
-                            {user.email?.[0].toUpperCase()}
-                          </span>
+                        <div className="absolute inset-0 flex items-center justify-center bg-orange-500 text-white font-medium">
+                          {user.email?.[0]?.toUpperCase() || 'U'}
                         </div>
                       )}
                     </Button>
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent className="w-56" align="end" forceMount>
+                  <DropdownMenuContent className="w-56" align="end">
                     <DropdownMenuLabel className="font-normal">
                       <div className="flex flex-col space-y-1">
-                        <p className="text-sm font-medium leading-none">{user.email}</p>
+                        <p className="text-sm font-medium leading-none">{user.displayName || 'User'}</p>
+                        <p className="text-xs leading-none text-gray-500">{user.email}</p>
                       </div>
                     </DropdownMenuLabel>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem asChild>
-                      <Link href="/profile">
+                      <Link href="/profile" className="flex items-center cursor-pointer">
                         <User className="mr-2 h-4 w-4" />
                         Profile
                       </Link>
                     </DropdownMenuItem>
                     <DropdownMenuItem asChild>
-                      <Link href="/subscription">
+                      <Link href="/subscription" className="flex items-center cursor-pointer">
                         <CreditCard className="mr-2 h-4 w-4" />
                         Subscription
                       </Link>
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
-                    <DropdownMenuItem onClick={logout}>
+                    <DropdownMenuItem onClick={logout} className="cursor-pointer">
                       <LogOut className="mr-2 h-4 w-4" />
                       Log out
                     </DropdownMenuItem>
