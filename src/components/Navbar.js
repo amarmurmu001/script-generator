@@ -9,8 +9,10 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
-import { BrainCircuit, Menu, X, Moon, Sun, User, LogOut } from "lucide-react";
+import { BrainCircuit, Menu, X, Moon, Sun, User, LogOut, CreditCard } from "lucide-react";
 import { motion } from "framer-motion";
 
 export default function Navbar() {
@@ -68,8 +70,8 @@ export default function Navbar() {
             {user ? (
               <div className="flex items-center gap-4">
                 <DropdownMenu>
-                  <DropdownMenuTrigger className="focus:outline-none">
-                    <div className="w-8 h-8 rounded-full overflow-hidden border-2 border-orange-500">
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" className="relative h-8 w-8 rounded-full">
                       {user.photoURL ? (
                         <Image
                           src={user.photoURL}
@@ -85,21 +87,31 @@ export default function Navbar() {
                           </span>
                         </div>
                       )}
-                    </div>
+                    </Button>
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
+                  <DropdownMenuContent className="w-56" align="end" forceMount>
+                    <DropdownMenuLabel className="font-normal">
+                      <div className="flex flex-col space-y-1">
+                        <p className="text-sm font-medium leading-none">{user.email}</p>
+                      </div>
+                    </DropdownMenuLabel>
+                    <DropdownMenuSeparator />
                     <DropdownMenuItem asChild>
-                      <Link href="/profile" className="flex items-center">
-                        <User className="w-4 h-4 mr-2" />
+                      <Link href="/profile">
+                        <User className="mr-2 h-4 w-4" />
                         Profile
                       </Link>
                     </DropdownMenuItem>
-                    <DropdownMenuItem
-                      onClick={logout}
-                      className="text-red-600 focus:text-red-600"
-                    >
-                      <LogOut className="w-4 h-4 mr-2" />
-                      Logout
+                    <DropdownMenuItem asChild>
+                      <Link href="/subscription">
+                        <CreditCard className="mr-2 h-4 w-4" />
+                        Subscription
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={logout}>
+                      <LogOut className="mr-2 h-4 w-4" />
+                      Log out
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>

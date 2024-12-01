@@ -8,6 +8,7 @@ import Link from "next/link"
 import { motion } from "framer-motion"
 import { cn } from "@/lib/utils"
 import { useAuth } from '@/lib/auth-context'
+import { useRouter } from 'next/navigation';
 
 export default function LandingPage() {
   const [email, setEmail] = useState("")
@@ -15,6 +16,7 @@ export default function LandingPage() {
   const [openFaq, setOpenFaq] = useState(null)
   const { user } = useAuth();
   const [isDarkMode, setIsDarkMode] = useState(false)
+  const router = useRouter();
 
   useEffect(() => {
     // Initial theme check
@@ -68,6 +70,63 @@ export default function LandingPage() {
       answer: "During the 14-day free trial, you can generate up to 50 scripts. After that, our pricing plans are designed to accommodate different content creation needs."
     }
   ]
+
+  const plans = [
+    { 
+      id: 'plan_starter',
+      razorpayPlanId: 'plan_XXXXX', // Replace with actual Razorpay plan ID
+      title: "Starter", 
+      price: "₹699", 
+      features: ["50 scripts per month", "5 themes", "Basic support"]
+    },
+    { 
+      id: 'plan_pro',
+      razorpayPlanId: 'plan_YYYYY', // Replace with actual Razorpay plan ID
+      title: "Pro", 
+      price: "₹1999", 
+      features: ["Unlimited scripts", "All themes", "Priority support", "Custom themes"]
+    },
+    { 
+      id: 'plan_enterprise',
+      title: "Enterprise", 
+      price: "Custom", 
+      features: ["Unlimited everything", "Dedicated account manager", "24/7 phone support", "Custom integrations"]
+    }
+  ];
+
+  const handleSubscription = async (plan) => {
+    if (!user) {
+      router.push('/login');
+      return;
+    }
+
+    if (plan.id === 'plan_enterprise') {
+      router.push('/contact');
+      return;
+    }
+
+    try {
+      const response = await fetch('/api/create-subscription', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          planId: plan.razorpayPlanId,
+          userId: user.uid,
+        }),
+      });
+
+      const data = await response.json();
+      if (data.error) throw new Error(data.error);
+
+      // Redirect to Razorpay checkout page
+      window.location.href = data.shortUrl;
+    } catch (error) {
+      console.error('Subscription error:', error);
+      // Show error notification to user
+    }
+  };
 
   return (
     <div className="flex flex-col min-h-screen bg-background">
@@ -181,11 +240,7 @@ export default function LandingPage() {
           <div className="container mx-auto">
             <h2 className="text-3xl font-bold tracking-tighter sm:text-5xl text-center mb-12">Simple Pricing</h2>
             <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
-              {[
-                { title: "Starter", price: "$9", features: ["50 scripts per month", "5 themes", "Basic support"] },
-                { title: "Pro", price: "$29", features: ["Unlimited scripts", "All themes", "Priority support", "Custom themes"] },
-                { title: "Enterprise", price: "Custom", features: ["Unlimited everything", "Dedicated account manager", "24/7 phone support", "Custom integrations"] }
-              ].map((plan, index) => (
+              {plans.map((plan, index) => (
                 <motion.div
                   key={index}
                   whileHover={{ scale: 1.03 }}
@@ -215,15 +270,16 @@ export default function LandingPage() {
                       </li>
                     ))}
                   </ul>
-                  <Link href="/scriptgenerator" className="mt-auto">
-                    <Button className={cn(
+                  <Button 
+                    onClick={() => handleSubscription(plan)}
+                    className={cn(
                       "w-full",
                       index === 1 ? "bg-white text-orange-500 hover:bg-gray-100" : 
                       (index === 2 ? "bg-orange-500 text-white hover:bg-orange-600" : "")
-                    )}>
-                      {index === 2 ? "Contact Sales" : "Choose Plan"}
-                    </Button>
-                  </Link>
+                    )}
+                  >
+                    {plan.id === 'plan_enterprise' ? "Contact Sales" : "Subscribe Now"}
+                  </Button>
                 </motion.div>
               ))}
             </div>
