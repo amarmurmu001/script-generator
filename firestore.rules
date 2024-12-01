@@ -9,6 +9,7 @@ service cloud.firestore {
       allow read: if request.auth != null && resource.data.userId == request.auth.uid;
       allow create: if false;
       allow update: if false;
+      // Server-side operations will bypass these rules
     }
   }
 } 

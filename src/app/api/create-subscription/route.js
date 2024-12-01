@@ -22,21 +22,20 @@ export async function POST(req) {
       }, { status: 400 });
     }
 
-    // Create Razorpay subscription
+    // Create Razorpay subscription with only required parameters
     const subscription = await razorpay.subscriptions.create({
       plan_id: planId,
       customer_notify: 1,
       total_count: 12,
       notes: {
-        userId: userId,
-        success_url: `${process.env.NEXT_PUBLIC_APP_URL}/subscription`,
+        userId: userId
       },
       notify: {
         sms: true,
-        email: true,
+        email: true
       },
       callback_url: `${process.env.NEXT_PUBLIC_APP_URL}/subscription`,
-      redirect_url: `${process.env.NEXT_PUBLIC_APP_URL}/subscription`,
+      redirect_url: `${process.env.NEXT_PUBLIC_APP_URL}/subscription`
     });
 
     if (!subscription || !subscription.short_url) {

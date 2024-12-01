@@ -19,6 +19,7 @@ export default function SubscriptionPage() {
     async function fetchSubscription() {
       if (user) {
         try {
+          setLoading(true);
           const sub = await getUserSubscription(user.uid);
           setSubscription(sub);
           
@@ -26,9 +27,37 @@ export default function SubscriptionPage() {
           const urlParams = new URLSearchParams(window.location.search);
           const razorpayPaymentId = urlParams.get('razorpay_payment_id');
           const razorpaySubscriptionId = urlParams.get('razorpay_subscription_id');
+          const razorpaySignature = urlParams.get('razorpay_signature');
           
-          if (razorpayPaymentId && razorpaySubscriptionId) {
-            toast.success('Subscription activated successfully!');
+          if (razorpayPaymentId && razorpaySubscriptionId && razorpaySignature) {
+            try {
+              // Verify the payment
+              const response = await fetch('/api/verify-payment', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                  paymentId: razorpayPaymentId,
+                  subscriptionId: razorpaySubscriptionId,
+                  signature: razorpaySignature
+                }),
+              });
+
+              if (response.ok) {
+                toast.success('Subscription activated successfully!');
+                // Refresh the subscription data after a short delay
+                setTimeout(async () => {
+                  const updatedSub = await getUserSubscription(user.uid);
+                  setSubscription(updatedSub);
+                }, 2000);
+              } else {
+                toast.error('Error verifying payment');
+              }
+            } catch (error) {
+              console.error('Error verifying payment:', error);
+              toast.error('Error verifying payment');
+            }
           }
         } catch (error) {
           console.error('Error fetching subscription:', error);
@@ -79,66 +108,74 @@ export default function SubscriptionPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500"></div>
+      <div className="flex justify-center items-center min-h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-orange-500"></div>
       </div>
     );
   }
 
   return (
     <AuthCheck>
-      <div className="container mx-auto py-12 px-4">
+      <div className="max-w-4xl mx-auto p-4">
         <h1 className="text-3xl font-bold mb-8">Subscription Management</h1>
         
         {subscription ? (
           <Card>
             <CardHeader>
               <CardTitle>Current Subscription</CardTitle>
-              <CardDescription>Your subscription details</CardDescription>
+              <CardDescription>
+                Status: <span className="capitalize">{subscription.status}</span>
+              </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div>
-                <p className="text-sm font-medium">Status</p>
-                <p className="capitalize">{subscription.status}</p>
-              </div>
-              <div>
-                <p className="text-sm font-medium">Plan</p>
-                <p>{subscription.planId}</p>
-              </div>
-              {subscription.currentPeriodEnd && (
+            <CardContent>
+              <div className="space-y-4">
                 <div>
-                  <p className="text-sm font-medium">Renews On</p>
-                  <p>{format(new Date(subscription.currentPeriodEnd), 'PPP')}</p>
+                  <strong>Plan:</strong> {subscription.planId}
                 </div>
-              )}
-            </CardContent>
-            <CardFooter>
-              <div className="space-x-3">
-                <Button 
-                  variant="outline" 
-                  onClick={handleManageSubscription}
-                >
-                  Change Plan
-                </Button>
-                {subscription?.status === 'active' && (
-                  <Button 
-                    variant="destructive"
-                    onClick={handleCancelSubscription}
-                  >
-                    Cancel Subscription
-                  </Button>
+                {subscription.currentPeriodEnd && (
+                  <div>
+                    <strong>Renews on:</strong> {format(new Date(subscription.currentPeriodEnd), 'PPP')}
+                  </div>
                 )}
+                <div>
+                  <strong>Status:</strong> 
+                  <span className={`ml-2 px-2 py-1 rounded-full text-sm ${
+                    subscription.status === 'active' 
+                      ? 'bg-green-100 text-green-800' 
+                      : 'bg-yellow-100 text-yellow-800'
+                  }`}>
+                    {subscription.status}
+                  </span>
+                </div>
               </div>
+            </CardContent>
+            <CardFooter className="space-x-4">
+              {subscription.status === 'active' && (
+                <Button 
+                  onClick={handleCancelSubscription}
+                  variant="destructive"
+                >
+                  Cancel Subscription
+                </Button>
+              )}
+              <Button 
+                onClick={handleManageSubscription}
+                className="bg-orange-500 hover:bg-orange-600"
+              >
+                {subscription.status === 'active' ? 'Manage Subscription' : 'View Plans'}
+              </Button>
             </CardFooter>
           </Card>
         ) : (
           <Card>
             <CardHeader>
               <CardTitle>No Active Subscription</CardTitle>
-              <CardDescription>Choose a plan to get started</CardDescription>
+              <CardDescription>
+                Subscribe to access premium features
+              </CardDescription>
             </CardHeader>
             <CardContent>
-              <p>You currently don't have an active subscription.</p>
+              <p>Choose a subscription plan to get started with our premium features.</p>
             </CardContent>
             <CardFooter>
               <Button 

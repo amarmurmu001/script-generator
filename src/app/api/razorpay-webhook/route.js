@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import crypto from 'crypto';
 import { updateSubscriptionStatus } from '@/lib/subscription';
+import { adminDb } from '@/lib/firebase-admin';
 
 export async function POST(req) {
   try {
@@ -26,30 +27,46 @@ export async function POST(req) {
       case 'subscription.activated':
       case 'subscription.charged':
         const subscriptionEntity = event.payload.subscription.entity;
-        await updateSubscriptionStatus(
-          subscriptionEntity.id,
-          'active',
-          new Date(subscriptionEntity.current_end * 1000).toISOString()
-        );
-        break;
-
-      case 'subscription.cancelled':
-        await updateSubscriptionStatus(
-          event.payload.subscription.entity.id,
-          'cancelled',
-          null
-        );
+        const subscriptionRef = adminDb.collection('subscriptions').doc(subscriptionEntity.id);
+        
+        try {
+          await subscriptionRef.update({
+            status: 'active',
+            currentPeriodEnd: new Date(subscriptionEntity.current_end * 1000).toISOString(),
+            updatedAt: new Date().toISOString(),
+            paymentStatus: 'paid'
+          });
+          console.log('Subscription updated successfully:', subscriptionEntity.id);
+        } catch (error) {
+          console.error('Error updating subscription:', error);
+        }
         break;
 
       case 'payment.captured':
-        // Handle successful payment
-        const subscription_id = event.payload.payment.entity.subscription_id;
+        const payment = event.payload.payment.entity;
+        const subscription_id = payment.subscription_id;
+        
         if (subscription_id) {
-          await updateSubscriptionStatus(
-            subscription_id,
-            'active',
-            new Date(event.payload.payment.entity.created_at * 1000 + 30 * 24 * 60 * 60 * 1000).toISOString()
-          );
+          try {
+            const subscriptionDoc = await adminDb
+              .collection('subscriptions')
+              .doc(subscription_id)
+              .get();
+
+            if (subscriptionDoc.exists) {
+              await subscriptionDoc.ref.update({
+                status: 'active',
+                paymentStatus: 'paid',
+                lastPaymentId: payment.id,
+                lastPaymentDate: new Date(payment.created_at * 1000).toISOString(),
+                currentPeriodEnd: new Date(payment.created_at * 1000 + 30 * 24 * 60 * 60 * 1000).toISOString(),
+                updatedAt: new Date().toISOString()
+              });
+              console.log('Payment captured and subscription updated:', subscription_id);
+            }
+          } catch (error) {
+            console.error('Error updating subscription after payment:', error);
+          }
         }
         break;
     }
