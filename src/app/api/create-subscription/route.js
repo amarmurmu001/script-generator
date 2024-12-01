@@ -22,25 +22,47 @@ export async function POST(req) {
       }, { status: 400 });
     }
 
-    // Create Razorpay subscription with only required parameters
+    // First, fetch the plan details to get the amount
+    const plan = await razorpay.plans.fetch(planId);
+    
+    if (!plan || !plan.item.amount) {
+      throw new Error('Invalid plan or plan amount not found');
+    }
+
+    // Create subscription
     const subscription = await razorpay.subscriptions.create({
       plan_id: planId,
-      customer_notify: 1,
       total_count: 12,
       notes: {
         userId: userId
-      },
-      notify: {
-        sms: true,
-        email: true
-      },
-      callback_url: `${process.env.NEXT_PUBLIC_APP_URL}/subscription`,
-      redirect_url: `${process.env.NEXT_PUBLIC_APP_URL}/subscription`
+      }
     });
 
-    if (!subscription || !subscription.short_url) {
+    if (!subscription || !subscription.id) {
       throw new Error('Failed to create subscription');
     }
+
+    // Create payment link with the plan amount
+    const paymentLink = await razorpay.paymentLink.create({
+      amount: plan.item.amount,  // Amount from the plan
+      currency: "INR",
+      accept_partial: false,
+      description: `Subscription to ${plan.item.name}`,
+      customer: {
+        notify: {
+          email: true,
+          sms: true
+        }
+      },
+      reminder_enable: true,
+      notes: {
+        subscription_id: subscription.id,
+        userId: userId,
+        planId: planId
+      },
+      callback_url: `${process.env.NEXT_PUBLIC_APP_URL}/subscription?subscription_id=${subscription.id}`,
+      callback_method: "get"
+    });
 
     // Store subscription details using Firebase Admin
     const subscriptionData = {
@@ -50,6 +72,10 @@ export async function POST(req) {
       status: subscription.status,
       createdAt: new Date().toISOString(),
       currentPeriodEnd: null,
+      paymentLinkId: paymentLink.id,
+      shortUrl: paymentLink.short_url,
+      amount: plan.item.amount,
+      planName: plan.item.name
     };
 
     await adminDb
@@ -59,7 +85,7 @@ export async function POST(req) {
 
     return NextResponse.json({ 
       subscriptionId: subscription.id,
-      shortUrl: subscription.short_url 
+      shortUrl: paymentLink.short_url 
     });
   } catch (error) {
     console.error('Subscription creation error:', error);

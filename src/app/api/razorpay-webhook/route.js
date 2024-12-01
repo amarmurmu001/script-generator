@@ -43,8 +43,10 @@ export async function POST(req) {
         break;
 
       case 'payment.captured':
+      case 'payment_link.paid':
         const payment = event.payload.payment.entity;
-        const subscription_id = payment.subscription_id;
+        const notes = payment.notes || {};
+        const subscription_id = notes.subscription_id || payment.subscription_id;
         
         if (subscription_id) {
           try {
