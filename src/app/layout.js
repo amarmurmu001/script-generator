@@ -23,11 +23,11 @@ export const metadata = {
 export default function RootLayout({ children }) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={`${geistSans.variable} ${geistMono.variable} antialiased bg-gray-50 dark:bg-[#0B0F1A] text-gray-900 dark:text-white min-h-screen`}>
+      <body className="min-h-screen bg-background font-sans antialiased" suppressHydrationWarning>
         <AuthProvider>
           <Navbar />
           {children}
-          <Toaster position="bottom-center" />
+          <Toaster />
         </AuthProvider>
       </body>
     </html>

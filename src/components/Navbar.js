@@ -11,13 +11,17 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
-import { BrainCircuit, Menu, X, Moon, Sun, User, LogOut, CreditCard } from "lucide-react";
+import { BrainCircuit, Menu, X, Moon, Sun, User, LogOut, CreditCard, Zap } from "lucide-react";
 import { motion } from "framer-motion";
+import { getUserSubscription } from '@/lib/subscription';
+import { checkScriptGenerationLimit } from '@/lib/script-limits';
 
 export default function Navbar() {
   const { user, logout } = useAuth();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(false);
+  const [userSubscription, setUserSubscription] = useState(null);
+  const [generationLimit, setGenerationLimit] = useState(null);
 
   // Debug user object
   useEffect(() => {
@@ -30,11 +34,69 @@ export default function Navbar() {
     }
   }, [user]);
 
+  // Handle dark mode
   useEffect(() => {
     const isDark = localStorage.getItem('darkMode') === 'true';
     setIsDarkMode(isDark);
     document.documentElement.classList.toggle('dark', isDark);
+
+    // Create observer for theme changes
+    const observer = new MutationObserver((mutations) => {
+      mutations.forEach((mutation) => {
+        if (mutation.attributeName === 'class') {
+          const isDark = document.documentElement.classList.contains('dark');
+          setIsDarkMode(isDark);
+        }
+      });
+    });
+
+    // Start observing
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ['class'],
+    });
+
+    // Cleanup
+    return () => observer.disconnect();
   }, []);
+
+  // Fetch user subscription and limits
+  useEffect(() => {
+    const fetchSubscriptionAndLimits = async () => {
+      if (!user) return;
+      try {
+        // Get user's subscription and limits in parallel
+        const [subscription, limits] = await Promise.all([
+          getUserSubscription(user.uid, true),
+          checkScriptGenerationLimit(user.uid)
+        ]);
+        
+        setUserSubscription(subscription);
+        setGenerationLimit(limits);
+      } catch (error) {
+        console.error('Error fetching subscription data:', error);
+        // Set default values on error
+        setUserSubscription({
+          userId: user.uid,
+          planName: 'Free',
+          status: 'active'
+        });
+        setGenerationLimit({
+          remaining: 5,
+          total: 5,
+          limitType: 'total'
+        });
+      }
+    };
+
+    fetchSubscriptionAndLimits();
+
+    // Set up an interval to refresh limits every minute
+    const intervalId = setInterval(fetchSubscriptionAndLimits, 60000);
+
+    // Cleanup interval on unmount
+    return () => clearInterval(intervalId);
+  }, [user]);
 
   const toggleDarkMode = () => {
     const newDarkMode = !isDarkMode;
@@ -46,19 +108,19 @@ export default function Navbar() {
   return (
     <>
       <header className="sticky top-0 z-50 w-full border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-[#121212] backdrop-blur">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full flex h-16 items-center justify-between">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full flex h-14 sm:h-16 items-center justify-between">
           <div className="flex items-center space-x-2">
             <Link href="/" className="flex items-center space-x-2">
-              <BrainCircuit className="h-6 w-6 text-orange-500" />
-              <span className="font-bold text-xl text-gray-900 dark:text-white">ScriptGenius</span>
+              <BrainCircuit className="h-5 w-5 sm:h-6 sm:w-6 text-orange-500" />
+              <span className="font-bold text-lg sm:text-xl text-gray-900 dark:text-white">ScriptGenius</span>
             </Link>
           </div>
 
-          <nav className="hidden md:flex gap-6 flex-grow justify-center">
+          <nav className="hidden md:flex gap-4 lg:gap-6 flex-grow justify-center">
             {["Features", "Pricing", "FAQ"].map((item) => (
               <Link 
                 key={item} 
-                className="text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors relative group py-2" 
+                className="text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors relative group py-2 px-1" 
                 href={`/#${item.toLowerCase()}`}
               >
                 {item}
@@ -72,19 +134,49 @@ export default function Navbar() {
               variant="ghost"
               size="icon"
               onClick={toggleDarkMode}
-              className="mr-2 text-gray-400 hover:text-gray-600 dark:hover:text-white"
+              className="h-8 w-8 sm:h-9 sm:w-9 text-gray-400 hover:text-gray-600 dark:hover:text-white"
             >
-              {isDarkMode ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+              {isDarkMode ? <Sun className="h-4 w-4 sm:h-5 sm:w-5" /> : <Moon className="h-4 w-4 sm:h-5 sm:w-5" />}
             </Button>
 
+            {user && userSubscription && (
+              <div className="hidden sm:flex items-center mr-4">
+                <div className="flex items-center space-x-2 bg-gray-100 dark:bg-gray-800 rounded-full px-3 py-1">
+                  <Zap className="h-4 w-4 text-orange-500" />
+                  <span className="text-sm font-medium text-gray-900 dark:text-white">
+                    {userSubscription.planName} Plan
+                  </span>
+                  {generationLimit && (
+                    <>
+                      <div className="h-4 w-[1px] bg-gray-300 dark:bg-gray-600" />
+                      <span className="text-sm font-medium text-gray-900 dark:text-white">
+                        {generationLimit.remaining}/{generationLimit.total} {generationLimit.limitType === 'daily' ? 'today' : 'total'}
+                      </span>
+                    </>
+                  )}
+                </div>
+                {(!userSubscription.planName || userSubscription.planName === 'Free') && (
+                  <Link href="/pricing">
+                    <Button 
+                      variant="ghost"
+                      size="sm"
+                      className="ml-2 text-orange-500 hover:text-orange-600"
+                    >
+                      Upgrade
+                    </Button>
+                  </Link>
+                )}
+              </div>
+            )}
+
             {user ? (
-              <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2 sm:gap-4">
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button 
                       variant="ghost" 
                       size="sm"
-                      className="relative w-8 h-8 rounded-full border-2 border-gray-200 dark:border-gray-700 p-0 overflow-hidden"
+                      className="relative w-8 h-8 sm:w-9 sm:h-9 rounded-full border-2 border-gray-200 dark:border-gray-700 p-0 overflow-hidden"
                     >
                       {user?.photoURL ? (
                         <div className="absolute inset-0 bg-orange-500">
@@ -96,7 +188,7 @@ export default function Navbar() {
                             onError={(e) => {
                               e.currentTarget.style.display = 'none';
                               e.currentTarget.parentElement.innerHTML = `
-                                <div class="w-full h-full flex items-center justify-center bg-orange-500 text-white">
+                                <div class="w-full h-full flex items-center justify-center bg-orange-500 text-white text-sm sm:text-base">
                                   ${user.email?.[0]?.toUpperCase() || 'U'}
                                 </div>
                               `;
@@ -104,7 +196,7 @@ export default function Navbar() {
                           />
                         </div>
                       ) : (
-                        <div className="absolute inset-0 flex items-center justify-center bg-orange-500 text-white font-medium">
+                        <div className="absolute inset-0 flex items-center justify-center bg-orange-500 text-white text-sm sm:text-base font-medium">
                           {user.email?.[0]?.toUpperCase() || 'U'}
                         </div>
                       )}
@@ -121,32 +213,32 @@ export default function Navbar() {
                     <DropdownMenuItem asChild>
                       <Link href="/profile" className="flex items-center cursor-pointer">
                         <User className="mr-2 h-4 w-4" />
-                        Profile
+                        <span className="text-sm">Profile</span>
                       </Link>
                     </DropdownMenuItem>
                     <DropdownMenuItem asChild>
                       <Link href="/subscription" className="flex items-center cursor-pointer">
                         <CreditCard className="mr-2 h-4 w-4" />
-                        Subscription
+                        <span className="text-sm">Subscription</span>
                       </Link>
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem onClick={logout} className="cursor-pointer">
                       <LogOut className="mr-2 h-4 w-4" />
-                      Log out
+                      <span className="text-sm">Log out</span>
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
               </div>
             ) : (
-              <div className="hidden md:flex items-center gap-4">
+              <div className="hidden md:flex items-center gap-2 sm:gap-4">
                 <Link href="/login">
-                  <Button variant="ghost" size="sm">
+                  <Button variant="ghost" size="sm" className="text-sm">
                     Login
                   </Button>
                 </Link>
                 <Link href="/signup">
-                  <Button size="sm" className="bg-orange-500 hover:bg-orange-600 text-white">
+                  <Button size="sm" className="bg-orange-500 hover:bg-orange-600 text-white text-sm">
                     Sign Up
                   </Button>
                 </Link>
@@ -156,10 +248,10 @@ export default function Navbar() {
             <Button
               variant="ghost"
               size="icon"
-              className="md:hidden text-gray-400 hover:text-gray-600 dark:hover:text-white"
+              className="md:hidden h-8 w-8 sm:h-9 sm:w-9 text-gray-400 hover:text-gray-600 dark:hover:text-white"
               onClick={() => setIsMenuOpen((prev) => !prev)}
             >
-              {isMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
+              {isMenuOpen ? <X className="h-5 w-5 sm:h-6 sm:w-6" /> : <Menu className="h-5 w-5 sm:h-6 sm:w-6" />}
             </Button>
           </div>
         </div>
@@ -171,14 +263,33 @@ export default function Navbar() {
           initial={{ opacity: 0, height: 0 }}
           animate={{ opacity: 1, height: "auto" }}
           exit={{ opacity: 0, height: 0 }}
-          transition={{ duration: 0.3, ease: "easeInOut" }}
-          className="md:hidden overflow-hidden w-full bg-white dark:bg-[#121212] border-b border-gray-200 dark:border-gray-800"
+          transition={{ duration: 0.2, ease: "easeInOut" }}
+          className="md:hidden fixed inset-x-0 top-[3.5rem] sm:top-16 z-40 overflow-hidden bg-white dark:bg-[#121212] border-b border-gray-200 dark:border-gray-800 shadow-lg"
         >
-          <nav className="flex flex-col items-center py-4">
+          {user && userSubscription && (
+            <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-2">
+                  <Zap className="h-4 w-4 text-orange-500" />
+                  <span className="text-sm font-medium text-gray-900 dark:text-white">
+                    {userSubscription.planName} Plan
+                  </span>
+                </div>
+                {generationLimit && (
+                  <div className="flex items-center bg-gray-100 dark:bg-gray-800 rounded-full px-2 py-1">
+                    <span className="text-xs font-medium text-gray-900 dark:text-white">
+                      {generationLimit.remaining}/{generationLimit.total} {generationLimit.limitType === 'daily' ? 'today' : 'total'}
+                    </span>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+          <nav className="flex flex-col py-4">
             {["Features", "Pricing", "FAQ"].map((item) => (
               <Link 
                 key={item} 
-                className="py-2 text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors w-full text-center" 
+                className="py-3 px-6 text-base font-medium text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors active:bg-gray-100 dark:active:bg-gray-700" 
                 href={`/#${item.toLowerCase()}`}
                 onClick={() => setIsMenuOpen(false)}
               >
@@ -186,14 +297,14 @@ export default function Navbar() {
               </Link>
             ))}
             {!user && (
-              <div className="w-full px-4 mt-4 space-y-2">
+              <div className="px-4 py-4 space-y-2 border-t border-gray-200 dark:border-gray-700 mt-2">
                 <Link href="/login" className="block">
-                  <Button variant="outline" className="w-full">
+                  <Button variant="ghost" className="w-full justify-center text-base">
                     Login
                   </Button>
                 </Link>
                 <Link href="/signup" className="block">
-                  <Button className="w-full bg-orange-500 hover:bg-orange-600 text-white">
+                  <Button className="w-full justify-center bg-orange-500 hover:bg-orange-600 text-white text-base">
                     Sign Up
                   </Button>
                 </Link>

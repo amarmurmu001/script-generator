@@ -4,7 +4,7 @@ import { useAuth } from '@/lib/auth-context';
 import { useRouter } from 'next/navigation';
 import { Button } from "@/components/ui/button";
 import { db } from "@/lib/firebase";
-import { doc, getDoc, collection, query, where, getDocs } from "firebase/firestore";
+import { doc, getDoc, collection, query, where, getDocs, orderBy } from "firebase/firestore";
 import AuthCheck from '@/components/auth-check';
 import { AlertCircle, CheckCircle2, XCircle } from "lucide-react";
 import { toast } from 'react-hot-toast';
@@ -15,12 +15,14 @@ export default function SubscriptionPage() {
   const [loading, setLoading] = useState(true);
   const [subscription, setSubscription] = useState(null);
   const [confirmCancel, setConfirmCancel] = useState(false);
+  const [paymentHistory, setPaymentHistory] = useState([]);
 
   useEffect(() => {
-    const fetchSubscription = async () => {
+    const fetchSubscriptionAndPayments = async () => {
       if (!user) return;
 
       try {
+        // Fetch subscription
         const subscriptionsRef = collection(db, "subscriptions");
         const q = query(
           subscriptionsRef,
@@ -35,6 +37,22 @@ export default function SubscriptionPage() {
             ...subData,
             id: querySnapshot.docs[0].id
           });
+
+          // Fetch payment history
+          const paymentsRef = collection(db, "payments");
+          const paymentsQuery = query(
+            paymentsRef,
+            where("userId", "==", user.uid),
+            where("subscriptionId", "==", querySnapshot.docs[0].id),
+            orderBy("createdAt", "desc")
+          );
+
+          const paymentsSnapshot = await getDocs(paymentsQuery);
+          const payments = paymentsSnapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data()
+          }));
+          setPaymentHistory(payments);
         }
       } catch (error) {
         console.error("Error fetching subscription:", error);
@@ -44,7 +62,7 @@ export default function SubscriptionPage() {
       }
     };
 
-    fetchSubscription();
+    fetchSubscriptionAndPayments();
   }, [user]);
 
   const handleUpgrade = () => {
@@ -55,30 +73,43 @@ export default function SubscriptionPage() {
     if (!subscription) return;
 
     try {
+      setLoading(true);
       const response = await fetch('/api/cancel-subscription', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          subscriptionId: subscription.subscriptionId,
+          subscriptionId: subscription.id,
+          userId: user.uid
         }),
       });
 
       if (!response.ok) {
-        throw new Error('Failed to cancel subscription');
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to cancel subscription');
       }
 
+      // Update local state
       setSubscription(prev => ({
         ...prev,
-        status: 'cancelled'
+        status: 'cancelled',
+        cancelledAt: new Date().toISOString(),
+        planName: 'Free',
+        planDetails: {
+          name: 'Free',
+          limit: 5,
+          limitType: 'total'
+        }
       }));
       
       toast.success('Subscription cancelled successfully');
       setConfirmCancel(false);
     } catch (error) {
       console.error('Error cancelling subscription:', error);
-      toast.error('Failed to cancel subscription');
+      toast.error(error.message || 'Failed to cancel subscription');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -120,7 +151,7 @@ export default function SubscriptionPage() {
                         Current Plan
                       </h2>
                       <p className="text-sm text-gray-500 dark:text-gray-400">
-                        {subscription.planName || 'Standard Plan'}
+                        {subscription.planName || 'Free Plan'}
                       </p>
                     </div>
                     {getStatusBadge(subscription.status)}
@@ -150,7 +181,7 @@ export default function SubscriptionPage() {
                     <div>
                       <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Status</p>
                       <p className="text-sm text-gray-900 dark:text-white">
-                        {subscription.paymentStatus || 'N/A'}
+                        {subscription.status || 'N/A'}
                       </p>
                     </div>
                   </div>
@@ -164,31 +195,40 @@ export default function SubscriptionPage() {
                         >
                           Upgrade Plan
                         </Button>
-                        {!confirmCancel ? (
-                          <Button
-                            variant="outline"
-                            onClick={() => setConfirmCancel(true)}
-                            className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20"
-                          >
-                            Cancel Subscription
-                          </Button>
-                        ) : (
-                          <div className="flex gap-2">
+                        <div>
+                          {!confirmCancel ? (
                             <Button
+                              onClick={() => setConfirmCancel(true)}
                               variant="destructive"
-                              onClick={handleCancelSubscription}
-                              className="bg-red-600 hover:bg-red-700 text-white"
+                              className="bg-red-500 hover:bg-red-600 text-white"
                             >
-                              Confirm Cancel
+                              Cancel Subscription
                             </Button>
-                            <Button
-                              variant="outline"
-                              onClick={() => setConfirmCancel(false)}
-                            >
-                              Keep Subscription
-                            </Button>
-                          </div>
-                        )}
+                          ) : (
+                            <div className="mt-4 p-4 border rounded-lg bg-red-50 dark:bg-red-900/20">
+                              <p className="text-sm text-red-600 dark:text-red-400 mb-4">
+                                Are you sure you want to cancel your subscription? You'll lose access to premium features.
+                              </p>
+                              <div className="flex space-x-4">
+                                <Button
+                                  onClick={handleCancelSubscription}
+                                  variant="destructive"
+                                  className="bg-red-500 hover:bg-red-600 text-white"
+                                  disabled={loading}
+                                >
+                                  {loading ? 'Cancelling...' : 'Yes, Cancel'}
+                                </Button>
+                                <Button
+                                  onClick={() => setConfirmCancel(false)}
+                                  variant="outline"
+                                  disabled={loading}
+                                >
+                                  No, Keep Subscription
+                                </Button>
+                              </div>
+                            </div>
+                          )}
+                        </div>
                       </>
                     )}
                     {subscription.status === 'cancelled' && (
@@ -218,19 +258,27 @@ export default function SubscriptionPage() {
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-                          {subscription.payments?.map((payment, index) => (
-                            <tr key={index}>
-                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-300">
-                                {new Date(payment.date).toLocaleDateString()}
-                              </td>
-                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-300">
-                                ₹{payment.amount}
-                              </td>
-                              <td className="px-6 py-4 whitespace-nowrap text-sm">
-                                {getStatusBadge(payment.status)}
+                          {paymentHistory.length > 0 ? (
+                            paymentHistory.map((payment) => (
+                              <tr key={payment.id}>
+                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-300">
+                                  {new Date(payment.createdAt).toLocaleDateString()}
+                                </td>
+                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-300">
+                                  ₹{payment.amount}
+                                </td>
+                                <td className="px-6 py-4 whitespace-nowrap text-sm">
+                                  {getStatusBadge(payment.status)}
+                                </td>
+                              </tr>
+                            ))
+                          ) : (
+                            <tr>
+                              <td colSpan="3" className="px-6 py-4 text-center text-sm text-gray-500 dark:text-gray-400">
+                                No payment history available
                               </td>
                             </tr>
-                          ))}
+                          )}
                         </tbody>
                       </table>
                     </div>

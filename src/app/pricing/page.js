@@ -105,80 +105,80 @@ export default function PricingPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-[#121212] py-12">
+    <div className="min-h-screen bg-gray-50 dark:bg-[#121212] py-8 sm:py-12">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Pricing Toggle */}
-        <div className="flex flex-col items-center mb-12">
-          <h1 className="text-4xl font-bold text-gray-900 dark:text-white mb-8 text-center">
+        <div className="flex flex-col items-center mb-8 sm:mb-12">
+          <h1 className="text-2xl sm:text-4xl font-bold text-gray-900 dark:text-white mb-6 sm:mb-8 text-center px-4">
             Simple, transparent pricing
           </h1>
-          <div className="flex items-center gap-3 bg-gray-100 dark:bg-[#171717] p-1 rounded-lg">
-            <span className={`text-sm ${!isAnnual ? 'text-gray-900 dark:text-white font-semibold' : 'text-gray-500'}`}>
+          <div className="flex items-center gap-2 sm:gap-3 bg-gray-100 dark:bg-[#171717] p-1 rounded-lg">
+            <span className={`text-xs sm:text-sm ${!isAnnual ? 'text-gray-900 dark:text-white font-semibold' : 'text-gray-500'}`}>
               Monthly
             </span>
             <button
               onClick={() => setIsAnnual(!isAnnual)}
-              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 ${
+              className={`relative inline-flex h-5 sm:h-6 w-10 sm:w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 ${
                 isAnnual ? 'bg-orange-500' : 'bg-gray-200'
               }`}
             >
               <span
-                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                  isAnnual ? 'translate-x-6' : 'translate-x-1'
+                className={`inline-block h-3 sm:h-4 w-3 sm:w-4 transform rounded-full bg-white transition-transform ${
+                  isAnnual ? 'translate-x-5 sm:translate-x-6' : 'translate-x-1'
                 }`}
               />
             </button>
-            <span className={`text-sm ${isAnnual ? 'text-gray-900 dark:text-white font-semibold' : 'text-gray-500'}`}>
+            <span className={`text-xs sm:text-sm ${isAnnual ? 'text-gray-900 dark:text-white font-semibold' : 'text-gray-500'}`}>
               Annual (Save 20%)
             </span>
           </div>
           {isAnnual && (
-            <p className="mt-3 text-sm text-orange-500 dark:text-orange-400">
+            <p className="mt-2 sm:mt-3 text-xs sm:text-sm text-orange-500 dark:text-orange-400">
               Save 20% with annual billing
             </p>
           )}
         </div>
 
         {/* Plans Grid */}
-        <div className="grid md:grid-cols-3 gap-8 mb-12">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-8 mb-8 sm:mb-12">
           {plans.map((plan, index) => (
             <motion.div
               key={plan.id}
-              className={`relative rounded-2xl bg-white dark:bg-[#171717] shadow-sm transition-all duration-200 ${
+              className={`relative rounded-xl sm:rounded-2xl bg-white dark:bg-[#171717] shadow-sm transition-all duration-200 ${
                 plan.popular ? 'ring-2 ring-orange-500 dark:ring-orange-400' : ''
               }`}
             >
               {plan.popular && (
-                <span className="absolute top-0 right-6 -translate-y-1/2 px-3 py-0.5 bg-orange-500 dark:bg-orange-400 text-white text-sm font-medium rounded-full">
+                <span className="absolute top-0 right-4 sm:right-6 -translate-y-1/2 px-2 sm:px-3 py-0.5 bg-orange-500 dark:bg-orange-400 text-white text-xs sm:text-sm font-medium rounded-full">
                   Popular
                 </span>
               )}
 
-              <div className="p-8">
-                <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
+              <div className="p-4 sm:p-8">
+                <h3 className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-white mb-2">
                   {plan.title}
                 </h3>
-                <p className="text-4xl font-bold text-gray-900 dark:text-white mb-6">
+                <p className="text-3xl sm:text-4xl font-bold text-gray-900 dark:text-white mb-4 sm:mb-6">
                   {isAnnual ? plan.price : plan.monthlyPrice}
                   {plan.price !== "Custom" && (
-                    <span className="text-base font-normal text-gray-500">
+                    <span className="text-sm sm:text-base font-normal text-gray-500">
                       /{isAnnual ? 'year' : 'month'}
                     </span>
                   )}
                 </p>
 
-                <ul className="space-y-4 mb-8">
+                <ul className="space-y-3 sm:space-y-4 mb-6 sm:mb-8">
                   {plan.features.map((feature, featureIndex) => (
                     <li key={featureIndex} className="flex items-center">
-                      <Check className="h-5 w-5 text-green-500 mr-3" />
-                      <span className="text-gray-600 dark:text-gray-300">{feature}</span>
+                      <Check className="h-4 w-4 sm:h-5 sm:w-5 text-green-500 mr-2 sm:mr-3 flex-shrink-0" />
+                      <span className="text-sm sm:text-base text-gray-600 dark:text-gray-300">{feature}</span>
                     </li>
                   ))}
                 </ul>
 
                 <Button
                   onClick={() => handleSubscribe(plan)}
-                  className={`w-full ${
+                  className={`w-full h-10 sm:h-11 text-sm sm:text-base ${
                     plan.popular
                       ? 'bg-orange-500 hover:bg-orange-600 text-white'
                       : 'bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600'
@@ -198,11 +198,11 @@ export default function PricingPage() {
         </div>
 
         {/* FAQ Section */}
-        <div className="mt-20">
-          <h2 className="text-3xl font-bold text-center text-gray-900 dark:text-white mb-8">
+        <div className="mt-12 sm:mt-20">
+          <h2 className="text-2xl sm:text-3xl font-bold text-center text-gray-900 dark:text-white mb-6 sm:mb-8 px-4">
             Frequently Asked Questions
           </h2>
-          <div className="max-w-3xl mx-auto space-y-6">
+          <div className="max-w-3xl mx-auto space-y-4 sm:space-y-6 px-4">
             {[
               {
                 question: "How does the billing work?",
@@ -219,12 +219,12 @@ export default function PricingPage() {
             ].map((faq, index) => (
               <div
                 key={index}
-                className="bg-white dark:bg-[#171717] rounded-lg p-6 shadow-sm"
+                className="bg-white dark:bg-[#171717] rounded-lg p-4 sm:p-6 shadow-sm"
               >
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+                <h3 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white mb-2">
                   {faq.question}
                 </h3>
-                <p className="text-gray-600 dark:text-gray-300">
+                <p className="text-sm sm:text-base text-gray-600 dark:text-gray-300">
                   {faq.answer}
                 </p>
               </div>

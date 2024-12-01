@@ -1,4 +1,5 @@
 "use client";
+import { useEffect } from 'react';
 import { useState } from 'react';
 import { useAuth } from '@/lib/auth-context';
 import { useRouter } from 'next/navigation';
@@ -12,8 +13,20 @@ export default function Signup() {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
-  const { signup, loginWithGoogle } = useAuth();
+  const { user, signup, loginWithGoogle } = useAuth();
   const router = useRouter();
+
+  // Redirect if user is already logged in
+  useEffect(() => {
+    if (user) {
+      router.push('/scriptgenerator');
+    }
+  }, [user, router]);
+
+  // If user is logged in, don't render the signup form
+  if (user) {
+    return null;
+  }
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -44,7 +57,7 @@ export default function Signup() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 py-12 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-[#121212] py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-md w-full space-y-8">
         <div>
           <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900 dark:text-white">
@@ -64,7 +77,7 @@ export default function Signup() {
               placeholder="Email address"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="mb-4"
+              className="mb-4 bg-white dark:bg-[#171717] border-gray-300 dark:border-gray-600"
             />
             <Input
               type="password"
@@ -72,7 +85,7 @@ export default function Signup() {
               placeholder="Password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="mb-4"
+              className="mb-4 bg-white dark:bg-[#171717] border-gray-300 dark:border-gray-600"
             />
             <Input
               type="password"
@@ -80,6 +93,7 @@ export default function Signup() {
               placeholder="Confirm password"
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
+              className="bg-white dark:bg-[#171717] border-gray-300 dark:border-gray-600"
             />
           </div>
           <div className="space-y-4">
@@ -89,7 +103,7 @@ export default function Signup() {
             <Button
               type="button"
               onClick={handleGoogleSignIn}
-              className="w-full bg-white dark:bg-gray-800 text-gray-900 dark:text-white border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700"
+              className="w-full bg-white dark:bg-[#171717] text-gray-900 dark:text-white border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-[#202020]"
             >
               <FcGoogle className="w-5 h-5 mr-2" />
               Sign up with Google

@@ -1,17 +1,22 @@
 "use client";
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Copy, Download, Volume2, Play, Pause, Edit, RefreshCw, Trash2 } from "lucide-react";
+import { Copy, Download, Volume2, Play, Pause, Edit, RefreshCw, Trash2, Zap } from "lucide-react";
 import { db, storage } from "@/lib/firebase"; // Import your Firebase configuration
-import { collection, addDoc, getDocs, doc, updateDoc, deleteDoc, query, where } from "firebase/firestore"; // Import Firestore functions
+import { collection, addDoc, getDocs, doc, updateDoc, deleteDoc, query, where, Timestamp, orderBy, limit } from "firebase/firestore"; // Import Firestore functions
 import { ref, getDownloadURL } from "firebase/storage";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import AuthCheck from '@/components/auth-check';
 import { useAuth } from '@/lib/auth-context';
 import SubscriptionCheck from '@/components/subscription-check';
+import { checkScriptGenerationLimit } from '@/lib/script-limits';
+import { getUserSubscription } from '@/lib/subscription';
+import { toast } from 'react-hot-toast';
+import { useRouter } from 'next/navigation';
+import debounce from 'lodash/debounce';
 
 export default function ScriptGenerator() {
   const [input, setInput] = useState("");
@@ -24,13 +29,42 @@ export default function ScriptGenerator() {
   const [isPlaying, setIsPlaying] = useState({});
   const audioRefs = useRef({});
   const [generatingAudioForScript, setGeneratingAudioForScript] = useState({});
-  const [currentScriptAudio, setCurrentScriptAudio] = useState(null);
   const [selectedVoice, setSelectedVoice] = useState("9BWtsMINqrJLrRacOk9x");
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(5);
   const [totalPages, setTotalPages] = useState(1);
+  const [generationLimit, setGenerationLimit] = useState(null);
+  const [activeSubscription, setActiveSubscription] = useState(null);
+  const router = useRouter();
+  const { user } = useAuth();
 
-  const voices = [
+  // Function to fetch script history - moved to top
+  const fetchScriptHistory = useCallback(async () => {
+    if (!user) return;
+    
+    try {
+      const scriptsRef = collection(db, "scripts");
+      const q = query(
+        scriptsRef, 
+        where("userId", "==", user.uid),
+        orderBy("createdAt", "desc"),
+        limit(10)
+      );
+      
+      const querySnapshot = await getDocs(q);
+      const scripts = querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+      
+      setScriptHistory(scripts);
+    } catch (error) {
+      console.error("Error fetching scripts:", error);
+      toast.error("Failed to load script history");
+    }
+  }, [user]);
+
+  const voices = useMemo(() => [
     { id: "9BWtsMINqrJLrRacOk9x", name: "Default Voice", description: "Expressive American female" },
     { id: "CwhRBWXzGAHq8TQ4Fs17", name: "Roger", description: "Confident American male" },
     { id: "EXAVITQu4vr4xnSDxMaL", name: "Sarah", description: "Soft American female" },
@@ -38,58 +72,131 @@ export default function ScriptGenerator() {
     { id: "TX3LPaxmHKxFdv7VOQHJ", name: "Liam", description: "Articulate American male" },
     { id: "bIHbv24MWmeRgasZH58o", name: "Will", description: "Friendly American male" },
     { id: "pFZP5JQG7iQjIQuC4Bku", name: "Lily", description: "Warm British female" },
-  ];
+  ], []);
 
-  const { user } = useAuth();
+  // Add this new useEffect to monitor generationLimit changes
+  useEffect(() => {
+    console.log('Generation limit state updated:', generationLimit);
+  }, [generationLimit]);
 
-  const generateScript = async () => {
-    setError("");
+  // Restore subscription and limits effect
+  useEffect(() => {
+    const fetchSubscriptionAndLimits = async () => {
+      if (!user) return;
+
+      try {
+        // Add a small delay to ensure auth is fully initialized
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        
+        // Get user's active subscription with forced refresh
+        const subscription = await getUserSubscription(user.uid, true);
+        console.log('Debug - Fetched Subscription:', subscription);
+        
+        // Always ensure we have valid plan details
+        if (!subscription.planDetails || subscription.planDetails.name !== subscription.planName) {
+          subscription.planDetails = PLAN_DETAILS[subscription.planName || 'Free'];
+        }
+        
+        setActiveSubscription(subscription);
+
+        // Check generation limits with the corrected subscription
+        const limits = await checkScriptGenerationLimit(user.uid);
+        console.log('Debug - Generation limits:', limits);
+        
+        setGenerationLimit(limits);
+      } catch (error) {
+        console.error('Error fetching subscription data:', error);
+        // Set default free plan on error
+        const defaultSubscription = {
+          userId: user.uid,
+          planName: 'Free',
+          planDetails: PLAN_DETAILS['Free'],
+          status: 'active'
+        };
+        setActiveSubscription(defaultSubscription);
+        setGenerationLimit({
+          total: 5,
+          used: 0,
+          remaining: 5,
+          limitType: 'total'
+        });
+        toast.error('Error loading subscription. Using free plan limits.');
+      }
+    };
+
+    if (user) {
+      fetchSubscriptionAndLimits();
+    }
+  }, [user]);
+
+  const generateScript = useCallback(async () => {
+    if (!user) return;
     setIsGenerating(true);
+    setError('');
+    
     try {
+      const limits = await checkScriptGenerationLimit(user.uid);
+      if (limits.remaining === 0) {
+        toast.error(limits.limitType === 'total' 
+          ? `You've reached your total limit of ${limits.total} scripts.`
+          : `You've reached your daily limit of ${limits.total} scripts.`);
+        return;
+      }
+
+      // Add timestamp to the script data
+      const scriptData = {
+        userId: user.uid,
+        input: input,
+        script: '', // Will be updated after generation
+        createdAt: Timestamp.now(),
+        updatedAt: Timestamp.now(),
+        status: 'generating'
+      };
+
+      // Add the script to Firestore first
+      const docRef = await addDoc(collection(db, 'scripts'), scriptData);
+
+      // Generate the script
       const response = await fetch('/api/generate-script', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ input }),
+        body: JSON.stringify({ prompt: input }),
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to generate script.');
+        throw new Error('Failed to generate script');
       }
 
       const data = await response.json();
-      if (!data.script) {
-        throw new Error('No script generated.');
-      }
-      setGeneratedScript(data.script);
-
-      // Save the generated script to Firebase
-      const docRef = await addDoc(collection(db, "scripts"), {
+      
+      // Update the script document with the generated content
+      await updateDoc(doc(db, 'scripts', docRef.id), {
         script: data.script,
-        createdAt: new Date(),
-        audioUrl: null,
-        audioFilename: null,
-        userId: user.uid
+        updatedAt: Timestamp.now(),
+        status: 'completed'
       });
 
-      // Update script history immediately
-      setScriptHistory(prev => [{
-        id: docRef.id,
-        script: data.script,
-        createdAt: new Date(),
-        audioUrl: null,
-        audioFilename: null,
-      }, ...prev]);
+      setGeneratedScript(data.script);
+      
+      // Update limits after successful generation
+      const newLimits = await checkScriptGenerationLimit(user.uid);
+      setGenerationLimit(newLimits);
 
+      // Refresh script history
+      fetchScriptHistory();
+      
+      // Show success message
+      toast.success('Script generated successfully!');
+      
     } catch (error) {
-      console.error('Error during script generation:', error);
-      setError(error.message || 'Error during script generation. Please try again.');
+      console.error('Error generating script:', error);
+      toast.error('Failed to generate script');
     } finally {
       setIsGenerating(false);
     }
-  };
+  }, [user, input, fetchScriptHistory]);
 
   // Function to format the script
   const formatScript = (script) => {
@@ -149,21 +256,22 @@ export default function ScriptGenerator() {
     element.click();
   };
 
-  const generateAudio = async () => {
-    if (!generatedScript) {
-      setError("Please generate a script first");
+  const generateAudio = async (scriptText, scriptId) => {
+    if (!scriptText) {
+      toast.error("Please generate a script first");
       return;
     }
 
-    setIsGeneratingAudio(true);
     try {
+      setGeneratingAudioForScript(prev => ({ ...prev, [scriptId]: true }));
+      
       const response = await fetch('/api/generate-audio', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ 
-          text: generatedScript,
+          text: scriptText,
           voiceId: selectedVoice 
         }),
       });
@@ -175,36 +283,34 @@ export default function ScriptGenerator() {
 
       const data = await response.json();
       
-      // Update the most recent script document with audio information
-      const recentScript = scriptHistory[0];
-      if (recentScript) {
-        const scriptRef = doc(db, "scripts", recentScript.id);
+      // Update the script document with audio information
+      if (scriptId) {
+        const scriptRef = doc(db, "scripts", scriptId);
         await updateDoc(scriptRef, {
           audioUrl: data.url,
           audioFilename: data.filename,
+          voiceId: selectedVoice,
+          updatedAt: Timestamp.now()
         });
 
-        // Update local state
-        setScriptHistory(prev => prev.map(script => 
-          script.id === recentScript.id 
-            ? { ...script, audioUrl: data.url, audioFilename: data.filename }
-            : script
-        ));
-
-        // Set current script audio
-        setCurrentScriptAudio({
-          url: data.url,
-          filename: data.filename,
-        });
+        // Refresh script history to show new audio
+        fetchScriptHistory();
       }
 
+      toast.success('Audio generated successfully!');
+      return data;
     } catch (error) {
       console.error('Error generating audio:', error);
-      setError(error.message || 'Error generating audio. Please try again.');
+      toast.error(error.message || 'Failed to generate audio');
     } finally {
-      setIsGeneratingAudio(false);
+      setGeneratingAudioForScript(prev => ({ ...prev, [scriptId]: false }));
     }
   };
+
+  // Fetch script history on mount and when user changes
+  useEffect(() => {
+    fetchScriptHistory();
+  }, [fetchScriptHistory]);
 
   // Add these helper functions for audio playback
   const togglePlay = (audioId) => {
@@ -214,6 +320,13 @@ export default function ScriptGenerator() {
     if (isPlaying[audioId]) {
       audio.pause();
     } else {
+      // Pause any currently playing audio
+      Object.keys(audioRefs.current).forEach(key => {
+        if (key !== audioId && audioRefs.current[key]) {
+          audioRefs.current[key].pause();
+          setIsPlaying(prev => ({ ...prev, [key]: false }));
+        }
+      });
       audio.play();
     }
     setIsPlaying(prev => ({
@@ -227,65 +340,6 @@ export default function ScriptGenerator() {
       ...prev,
       [audioId]: false
     }));
-  };
-
-  const generateAudioForScript = async (script) => {
-    const scriptId = script.id;
-    setGeneratingAudioForScript(prev => ({ ...prev, [scriptId]: true }));
-    
-    try {
-      const response = await fetch('/api/generate-audio', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ 
-          text: script.script,
-          voiceId: selectedVoice 
-        }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to generate audio.');
-      }
-
-      const data = await response.json();
-      
-      // Update the script document in Firestore with audio information
-      const scriptRef = doc(db, "scripts", scriptId);
-      await updateDoc(scriptRef, {
-        audioUrl: data.url,
-        audioFilename: data.filename,
-      });
-
-      // Update local state for script history
-      setScriptHistory(prev => prev.map(s => 
-        s.id === scriptId 
-          ? { ...s, audioUrl: data.url, audioFilename: data.filename }
-          : s
-      ));
-
-      // Add to audio URLs list
-      setAudioUrls(prev => [...prev, {
-        url: data.url,
-        filename: data.filename,
-        timestamp: new Date().toISOString(),
-        script: script.script,
-        scriptId: scriptId
-      }]);
-
-    } catch (error) {
-      console.error('Error generating audio:', error);
-      setError(error.message || 'Error generating audio. Please try again.');
-    } finally {
-      setGeneratingAudioForScript(prev => ({ ...prev, [scriptId]: false }));
-    }
-  };
-
-  // Add function to find audio for a script
-  const findAudioForScript = (scriptId) => {
-    return audioUrls.find(audio => audio.scriptId === scriptId);
   };
 
   // Replace the existing downloadAudio function with this updated version
@@ -594,7 +648,7 @@ export default function ScriptGenerator() {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => generateAudioForScript(script)}
+                  onClick={() => generateAudio(script.script, script.id)}
                   disabled={generatingAudioForScript[script.id]}
                   className="flex items-center"
                 >
@@ -658,265 +712,257 @@ export default function ScriptGenerator() {
     <PaginationControls />
   </div>
 
+  // Add debounce for input changes
+  const debouncedInputChange = useCallback(
+    debounce((value) => setInput(value), 300),
+    []
+  );
+
+  // Add loading state for initial data fetch
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchInitialData = async () => {
+      if (!user) return;
+      
+      try {
+        setIsLoading(true);
+        
+        // Fetch subscription and limits in parallel
+        const [subscription, limits] = await Promise.all([
+          getUserSubscription(user.uid, true),
+          checkScriptGenerationLimit(user.uid)
+        ]);
+        
+        setActiveSubscription(subscription);
+        setGenerationLimit(limits);
+        
+        // Fetch script history
+        const scriptsRef = collection(db, 'scripts');
+        const q = query(
+          scriptsRef,
+          where('userId', '==', user.uid),
+          orderBy('createdAt', 'desc'),
+          limit(itemsPerPage)
+        );
+        
+        const querySnapshot = await getDocs(q);
+        const scripts = querySnapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        }));
+        
+        setScriptHistory(scripts);
+        
+      } catch (error) {
+        console.error('Error fetching initial data:', error);
+        toast.error('Failed to load data');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchInitialData();
+  }, [user]);
+
   return (
-    <SubscriptionCheck requiredPlan={['plan_pro', 'plan_starter']}>
-      <AuthCheck>
-        <div className="min-h-screen bg-white dark:bg-[#121212] py-8">
-          <div className="container mx-auto px-4">
-            <div className="max-w-4xl mx-auto">
-              <h1 className="text-4xl font-bold text-center mb-12 bg-clip-text text-transparent bg-gradient-to-r from-orange-500 to-orange-600">
-                Youtube CTA Shorts Script Generator
-              </h1>
-              
-              <div className="bg-white dark:bg-[#121212] border border-gray-200 dark:border-gray-800 rounded-lg p-8 mb-8 shadow-lg">
-                <div className="space-y-6">
-                  <div>
-                    <Label htmlFor="input" className="block text-sm font-medium text-black dark:text-white mb-2">
-                      Enter Theme, Title, or Keyword
-                    </Label>
-                    <Input
-                      id="input"
-                      value={input}
-                      onChange={(e) => setInput(e.target.value)}
-                      placeholder="Enter your theme, title, or keyword..."
-                      className="w-full dark:bg-[#121212] dark:border-gray-700 text-white placeholder-gray-400"
-                    />
-                  </div>
-                  
-                  <div>
-                    <Label className="block text-sm font-medium text-black dark:text-white mb-2">
-                      Select Voice
-                    </Label>
-                    <Select value={selectedVoice} onValueChange={setSelectedVoice}>
-                      <SelectTrigger className="w-full dark:bg-[#121212] border-gray-300 dark:border-gray-700 text-white">
-                        <SelectValue placeholder="Select a voice" />
-                      </SelectTrigger>
-                      <SelectContent className="bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
-                        {voices.map((voice) => (
-                          <SelectItem 
-                            key={voice.id} 
-                            value={voice.id}
-                            className="text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700"
-                          >
-                            {voice.name} {voice.description && `- ${voice.description}`}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
+    <AuthCheck>
+      <SubscriptionCheck>
+        <div className="min-h-screen bg-gray-50 dark:bg-[#121212] p-4 sm:p-6">
+          <div className="max-w-7xl mx-auto">
+            <div className="container mx-auto px-4">
+              <div className="max-w-4xl mx-auto">
+                <h1 className="text-4xl font-bold text-center mb-12 bg-clip-text text-transparent bg-gradient-to-r from-orange-500 to-orange-600">
+                  Youtube CTA Shorts Script Generator
+                </h1>
+                
+                <div className="bg-white dark:bg-[#171717] rounded-lg shadow-sm p-4 sm:p-6 mb-6">
+                  <div className="space-y-4">
+                    <div>
+                      <Label className="text-sm sm:text-base mb-2 block">Enter your prompt</Label>
+                      <Textarea
+                        value={input}
+                        onChange={(e) => setInput(e.target.value)}
+                        placeholder="Enter your prompt here..."
+                        className="w-full min-h-[100px] text-sm sm:text-base"
+                      />
+                    </div>
+                    
+                    <div className="space-y-3 sm:space-y-0 sm:flex sm:items-center sm:space-x-4">
+                      <Select value={selectedVoice} onValueChange={setSelectedVoice}>
+                        <SelectTrigger className="w-full sm:w-[200px] text-sm sm:text-base">
+                          <SelectValue placeholder="Select voice" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {voices.map((voice) => (
+                            <SelectItem key={voice.id} value={voice.id} className="text-sm sm:text-base">
+                              {voice.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
 
-                  <Button 
-                    onClick={generateScript}
-                    disabled={isGenerating || !input.trim()}
-                    className="w-full bg-orange-500 hover:bg-orange-600 text-white"
-                  >
-                    {isGenerating ? "Generating..." : "Generate Script"}
-                  </Button>
-                </div>
-              </div>
-
-              {generatedScript && (
-                <div className="bg-white dark:bg-[#121212] border border-gray-200 dark:border-gray-800 rounded-lg p-8 mb-8 shadow-lg">
-                  <h2 className="text-xl font-bold mb-6 text-white">Script Preview</h2>
-                  <Textarea
-                    value={generatedScript}
-                    readOnly
-                    className="w-full h-40 mb-4 p-2 border rounded bg-gray-50 dark:bg-[#121212] text-gray-900 dark:text-white border-gray-300 dark:border-gray-700"
-                  />
-                  <div className="flex justify-end space-x-4">
-                    {currentScriptAudio && (
-                      <>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => togglePlay(currentScriptAudio.filename)}
-                          className="flex items-center"
-                        >
-                          {isPlaying[currentScriptAudio.filename] ? (
-                            <Pause className="w-4 h-4 mr-2" />
-                          ) : (
-                            <Play className="w-4 h-4 mr-2" />
-                          )}
-                          {isPlaying[currentScriptAudio.filename] ? 'Pause' : 'Play'}
-                        </Button>
-                        <audio
-                          ref={el => audioRefs.current[currentScriptAudio.filename] = el}
-                          src={currentScriptAudio.url}
-                          onEnded={() => handleAudioEnd(currentScriptAudio.filename)}
-                          className="hidden"
-                        />
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => downloadAudio(currentScriptAudio.url, currentScriptAudio.filename)}
-                          className="flex items-center"
-                        >
-                          <Download className="w-4 h-4 mr-2" />
-                          Download Audio
-                        </Button>
-                      </>
-                    )}
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
-                      className="flex items-center text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
-                      onClick={() => copyScript(generatedScript)}
-                    >
-                      <Copy className="w-4 h-4 mr-2" />
-                      Copy Script
-                    </Button>
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
-                      className="flex items-center text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
-                      onClick={downloadScript}
-                    >
-                      <Download className="w-4 h-4 mr-2" />
-                      Download Script
-                    </Button>
+                      <Button
+                        onClick={generateScript}
+                        disabled={isGenerating || !input.trim()}
+                        className="w-full sm:w-auto bg-orange-500 hover:bg-orange-600 text-white text-sm sm:text-base"
+                      >
+                        {isGenerating ? (
+                          <div className="flex items-center space-x-2">
+                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                            <span>Generating...</span>
+                          </div>
+                        ) : (
+                          'Generate Script'
+                        )}
+                      </Button>
+                    </div>
                   </div>
                 </div>
-              )}
 
-              <div className="bg-white dark:bg-[#121212] border border-gray-200 dark:border-gray-800 rounded-lg p-8 shadow-lg">
-                <h2 className="text-xl font-bold mb-6 text-black dark:text-white">Script History</h2>
-                <div className="grid grid-cols-1 gap-4">
-                  {paginate(sortedScriptHistory).map(script => (
-                    <div key={script.id} className="border  border-gray-200 dark:border-gray-700 rounded-lg p-4 bg-gray-50 dark:bg-[#121212] hover:bg-gray-100 dark:hover:bg-[#00000038] transition-colors duration-200">
-                      <div className="mb-4 ">
-                        {editingScript === script.id ? (
-                          <div className="space-y-2 ">
-                            <Textarea
-                              value={editedContent}
-                              onChange={(e) => setEditedContent(e.target.value)}
-                              className="w-full min-h-[100px] "
-                            />
-                            <div className="flex space-x-2">
-                              <Button 
-                                variant="outline" 
-                                size="sm" 
-                                onClick={() => saveEdit(script.id)}
+                {/* Generated Script Section */}
+                {generatedScript && (
+                  <div className="bg-white dark:bg-[#171717] rounded-lg shadow-sm p-4 sm:p-6 mb-6">
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4">
+                      <h2 className="text-lg sm:text-xl font-semibold mb-2 sm:mb-0">Generated Script</h2>
+                      <div className="flex flex-col sm:flex-row gap-2 sm:gap-4">
+                        <Button
+                          onClick={() => copyScript(generatedScript)}
+                          className="w-full sm:w-auto text-sm sm:text-base"
+                          variant="outline"
+                        >
+                          <Copy className="h-4 w-4 mr-2" />
+                          Copy
+                        </Button>
+                        <Button
+                          onClick={downloadScript}
+                          className="w-full sm:w-auto text-sm sm:text-base"
+                          variant="outline"
+                        >
+                          <Download className="h-4 w-4 mr-2" />
+                          Download
+                        </Button>
+                        <Button
+                          onClick={() => generateAudio(generatedScript, scriptHistory[0]?.id)}
+                          disabled={isGeneratingAudio}
+                          className="w-full sm:w-auto text-sm sm:text-base"
+                          variant="outline"
+                        >
+                          <Volume2 className="h-4 w-4 mr-2" />
+                          {isGeneratingAudio ? 'Generating Audio...' : 'Generate Audio'}
+                        </Button>
+                      </div>
+                    </div>
+                    <div className="prose dark:prose-invert max-w-none text-sm sm:text-base">
+                      {formatScript(generatedScript)}
+                    </div>
+                  </div>
+                )}
+
+                {/* Script History Section */}
+                {scriptHistory.length > 0 && (
+                  <div className="bg-white dark:bg-[#171717] rounded-lg shadow-sm p-4 sm:p-6">
+                    <h2 className="text-lg sm:text-xl font-semibold mb-4">Script History</h2>
+                    <div className="space-y-4">
+                      {scriptHistory.map((script) => (
+                        <div
+                          key={script.id}
+                          className="border dark:border-gray-700 rounded-lg p-3 sm:p-4"
+                        >
+                          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-2">
+                            <div className="flex flex-col mb-2 sm:mb-0">
+                              <p className="text-sm text-gray-500 dark:text-gray-400">
+                                {script.createdAt?.toDate?.() ? new Date(script.createdAt.toDate()).toLocaleString() : 'Unknown date'}
+                              </p>
+                              {script.status === 'generating' && (
+                                <span className="inline-flex items-center text-xs text-orange-500">
+                                  <span className="mr-1">●</span> Generating...
+                                </span>
+                              )}
+                            </div>
+                            <div className="flex flex-wrap gap-2">
+                              <Button
+                                onClick={() => copyScript(script.script)}
+                                size="sm"
+                                variant="outline"
+                                className="text-xs sm:text-sm"
                               >
-                                Save
+                                <Copy className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+                                Copy
                               </Button>
-                              <Button 
-                                variant="outline" 
-                                size="sm" 
-                                onClick={() => setEditingScript(null)}
+                              {hasAudio(script) ? (
+                                <>
+                                  <Button
+                                    onClick={() => togglePlay(script.id)}
+                                    size="sm"
+                                    variant="outline"
+                                    className="text-xs sm:text-sm"
+                                  >
+                                    {isPlaying[script.id] ? (
+                                      <>
+                                        <Pause className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+                                        Pause
+                                      </>
+                                    ) : (
+                                      <>
+                                        <Play className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+                                        Play
+                                      </>
+                                    )}
+                                  </Button>
+                                  <audio
+                                    ref={el => audioRefs.current[script.id] = el}
+                                    src={script.audioUrl}
+                                    onEnded={() => handleAudioEnd(script.id)}
+                                    className="hidden"
+                                  />
+                                  <Button
+                                    onClick={() => downloadAudio(script.audioUrl, script.audioFilename)}
+                                    size="sm"
+                                    variant="outline"
+                                    className="text-xs sm:text-sm"
+                                  >
+                                    <Download className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+                                    Audio
+                                  </Button>
+                                </>
+                              ) : (
+                                <Button
+                                  onClick={() => generateAudio(script.script, script.id)}
+                                  size="sm"
+                                  variant="outline"
+                                  className="text-xs sm:text-sm"
+                                  disabled={generatingAudioForScript[script.id]}
+                                >
+                                  <Volume2 className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+                                  {generatingAudioForScript[script.id] ? 'Generating...' : 'Generate Audio'}
+                                </Button>
+                              )}
+                              <Button
+                                onClick={() => deleteScript(script.id)}
+                                size="sm"
+                                variant="outline"
+                                className="text-xs sm:text-sm text-red-500 hover:text-red-600"
                               >
-                                Cancel
+                                <Trash2 className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+                                Delete
                               </Button>
                             </div>
                           </div>
-                        ) : (
-                          formatScript(script.script)
-                        )}
-                      </div>
-                      <div className="flex justify-between items-center mt-4">
-                        <p className="text-sm text-">
-                          {formatDate(script.createdAt)}
-                          {script.updatedAt && ` (Updated: ${formatDate(script.updatedAt)})`}
-                        </p>
-                        <div className="flex space-x-2">
-                          {hasAudio(script) ? (
-                            <>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => togglePlay(script.audioFilename)}
-                                className="flex items-center  text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-[#121212]"
-                              >
-                                {isPlaying[script.audioFilename] ? (
-                                  <Pause className="w-4 h-4" />
-                                ) : (
-                                  <Play className="w-4 h-4" />
-                                )}
-                                <audio
-                                  ref={el => audioRefs.current[script.audioFilename] = el}
-                                  src={script.audioUrl}
-                                  onEnded={() => handleAudioEnd(script.audioFilename)}
-                                  className="hidden"
-                                />
-                              </Button>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => downloadAudio(script.audioUrl, script.audioFilename)}
-                                className="flex items-center  text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
-                              >
-                                <Download className="w-4 h-4" />
-                              </Button>
-                            </>
-                          ) : (
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => generateAudioForScript(script)}
-                              disabled={generatingAudioForScript[script.id]}
-                              className="flex items-center  text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700" 
-                            >
-                              {generatingAudioForScript[script.id] ? (
-                                <>
-                                  <Volume2 className="w-4 h-4 mr-2 animate-pulse  text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700" />
-                                  Generating...
-                                </>
-                              ) : (
-                                <>
-                                  <Volume2 className="w-4 h-4 mr-2  text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700" />
-                                  Generate Audio
-                                </>
-                              )}
-                            </Button>
-                          )}
-                          
-                          <Button 
-                            variant="outline" 
-                            size="sm"
-                            className="flex items-center text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
-                            onClick={() => startEditing(script)}
-                            disabled={editingScript === script.id}
-                          >
-                            <Edit className="w-4 h-4 mr-2" />
-                            Edit
-                          </Button>
-                          <Button 
-                            variant="outline" 
-                            size="sm"
-                            className="flex items-center text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
-                            onClick={() => regenerateScript(script)}
-                            disabled={isGenerating}
-                          >
-                            <RefreshCw className="w-4 h-4 mr-2" />
-                            Regenerate
-                          </Button>
-                          <Button 
-                            variant="outline" 
-                            size="sm"
-                            className="flex items-center text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-500/10"
-                            onClick={() => deleteScript(script.id)}
-                          >
-                            <Trash2 className="w-4 h-4 mr-2" />
-                            Delete
-                          </Button>
-                          <Button 
-                            variant="outline" 
-                            size="sm"
-                            className="flex items-center text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
-                            onClick={() => copyScript(script.script)}
-                          >
-                            <Copy className="w-4 h-4 mr-2" />
-                            Copy
-                          </Button>
+                          <div className="prose dark:prose-invert max-w-none text-sm">
+                            {formatScript(script.script)}
+                          </div>
                         </div>
-                      </div>
+                      ))}
                     </div>
-                  ))}
-                </div>
+                    <PaginationControls />
+                  </div>
+                )}
               </div>
             </div>
           </div>
         </div>
-      </AuthCheck>
-    </SubscriptionCheck>
+      </SubscriptionCheck>
+    </AuthCheck>
   );
 }
