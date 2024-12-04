@@ -13,26 +13,24 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { BrainCircuit, Menu, X, Moon, Sun, User, LogOut, CreditCard, Zap } from "lucide-react";
 import { motion } from "framer-motion";
-import { getUserSubscription } from '@/lib/subscription';
-import { checkScriptGenerationLimit } from '@/lib/script-limits';
+import { useSubscription } from '@/lib/subscription-context';
 
 export default function Navbar() {
   const { user, logout } = useAuth();
+  const { subscription, limits, updateSubscriptionData } = useSubscription();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(false);
-  const [userSubscription, setUserSubscription] = useState(null);
-  const [generationLimit, setGenerationLimit] = useState(null);
 
-  // Debug user object
   useEffect(() => {
     if (user) {
-      console.log('User object:', {
-        photoURL: user.photoURL,
-        displayName: user.displayName,
-        email: user.email
-      });
+      updateSubscriptionData(user.uid);
     }
-  }, [user]);
+  }, [user, updateSubscriptionData]);
+
+  // Use subscription and limits from context instead of local state
+  const remainingScripts = limits?.remaining || 0;
+  const totalScripts = limits?.total || 0;
+  const planName = subscription?.planName || 'Free';
 
   // Handle dark mode
   useEffect(() => {
@@ -59,61 +57,6 @@ export default function Navbar() {
     // Cleanup
     return () => observer.disconnect();
   }, []);
-
-  // Fetch user subscription and limits
-  useEffect(() => {
-    const fetchSubscriptionAndLimits = async () => {
-      if (!user) return;
-      try {
-        // Add a small delay to ensure auth is fully initialized
-        await new Promise(resolve => setTimeout(resolve, 500));
-
-        // Get user's subscription and limits in parallel
-        const [subscription, limits] = await Promise.all([
-          getUserSubscription(user.uid, true).catch(error => {
-            console.error('Error fetching subscription:', error);
-            return {
-              userId: user.uid,
-              planName: 'Free',
-              status: 'active'
-            };
-          }),
-          checkScriptGenerationLimit(user.uid).catch(error => {
-            console.error('Error checking generation limit:', error);
-            return {
-              remaining: 5,
-              total: 5,
-              limitType: 'total'
-            };
-          })
-        ]);
-        
-        setUserSubscription(subscription);
-        setGenerationLimit(limits);
-      } catch (error) {
-        console.error('Error fetching subscription data:', error);
-        // Set default values on error
-        setUserSubscription({
-          userId: user.uid,
-          planName: 'Free',
-          status: 'active'
-        });
-        setGenerationLimit({
-          remaining: 5,
-          total: 5,
-          limitType: 'total'
-        });
-      }
-    };
-
-    fetchSubscriptionAndLimits();
-
-    // Set up an interval to refresh limits every minute
-    const intervalId = setInterval(fetchSubscriptionAndLimits, 60000);
-
-    // Cleanup interval on unmount
-    return () => clearInterval(intervalId);
-  }, [user]);
 
   const toggleDarkMode = () => {
     const newDarkMode = !isDarkMode;
@@ -156,23 +99,23 @@ export default function Navbar() {
               {isDarkMode ? <Sun className="h-4 w-4 sm:h-5 sm:w-5" /> : <Moon className="h-4 w-4 sm:h-5 sm:w-5" />}
             </Button>
 
-            {user && userSubscription && (
+            {user && (
               <div className="hidden sm:flex items-center mr-4">
                 <div className="flex items-center space-x-2 bg-gray-100 dark:bg-gray-800 rounded-full px-3 py-1">
                   <Zap className="h-4 w-4 text-orange-500" />
                   <span className="text-sm font-medium text-gray-900 dark:text-white">
-                    {userSubscription.planName} Plan
+                    {planName} Plan
                   </span>
-                  {generationLimit && (
+                  {remainingScripts > 0 && (
                     <>
                       <div className="h-4 w-[1px] bg-gray-300 dark:bg-gray-600" />
                       <span className="text-sm font-medium text-gray-900 dark:text-white">
-                        {generationLimit.remaining}/{generationLimit.total} {generationLimit.limitType === 'daily' ? 'today' : 'total'}
+                        {remainingScripts}/{totalScripts} {limits?.limitType === 'daily' ? 'today' : 'total'}
                       </span>
                     </>
                   )}
                 </div>
-                {(!userSubscription.planName || userSubscription.planName === 'Free') && (
+                {planName === 'Free' && (
                   <Link href="/pricing">
                     <Button 
                       variant="ghost"
@@ -283,19 +226,19 @@ export default function Navbar() {
           transition={{ duration: 0.2, ease: "easeInOut" }}
           className="md:hidden fixed inset-x-0 top-[3.5rem] sm:top-16 z-40 overflow-hidden bg-white dark:bg-[#121212] border-b border-gray-200 dark:border-gray-800 shadow-lg"
         >
-          {user && userSubscription && (
+          {user && (
             <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700">
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-2">
                   <Zap className="h-4 w-4 text-orange-500" />
                   <span className="text-sm font-medium text-gray-900 dark:text-white">
-                    {userSubscription.planName} Plan
+                    {planName} Plan
                   </span>
                 </div>
-                {generationLimit && (
+                {remainingScripts > 0 && (
                   <div className="flex items-center bg-gray-100 dark:bg-gray-800 rounded-full px-2 py-1">
                     <span className="text-xs font-medium text-gray-900 dark:text-white">
-                      {generationLimit.remaining}/{generationLimit.total} {generationLimit.limitType === 'daily' ? 'today' : 'total'}
+                      {remainingScripts}/{totalScripts} {limits?.limitType === 'daily' ? 'today' : 'total'}
                     </span>
                   </div>
                 )}

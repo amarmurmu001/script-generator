@@ -17,6 +17,7 @@ import { getUserSubscription } from '@/lib/subscription';
 import { toast } from 'react-hot-toast';
 import { useRouter } from 'next/navigation';
 import debounce from 'lodash/debounce';
+import { useSubscription } from '@/lib/subscription-context';
 
 export default function ScriptGenerator() {
   const [input, setInput] = useState("");
@@ -37,6 +38,7 @@ export default function ScriptGenerator() {
   const [activeSubscription, setActiveSubscription] = useState(null);
   const router = useRouter();
   const { user } = useAuth();
+  const { updateSubscriptionData } = useSubscription();
 
   // Function to fetch script history - moved to top
   const fetchScriptHistory = useCallback(async () => {
@@ -151,23 +153,21 @@ export default function ScriptGenerator() {
       // Add timestamp to the script data
       const scriptData = {
         userId: user.uid,
-        input: input.trim(), // Store the trimmed input
-        script: '', // Will be updated after generation
+        input: input.trim(),
+        script: '',
         createdAt: Timestamp.now(),
         updatedAt: Timestamp.now(),
         status: 'generating'
       };
 
-      // Add the script to Firestore first
       const docRef = await addDoc(collection(db, 'scripts'), scriptData);
 
-      // Generate the script
       const response = await fetch('/api/generate-script', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ input: input.trim() }), // Send the trimmed input
+        body: JSON.stringify({ input: input.trim() }),
       });
 
       if (!response.ok) {
@@ -176,7 +176,6 @@ export default function ScriptGenerator() {
 
       const data = await response.json();
       
-      // Update the script document with the generated content
       await updateDoc(doc(db, 'scripts', docRef.id), {
         script: data.script,
         updatedAt: Timestamp.now(),
@@ -188,20 +187,12 @@ export default function ScriptGenerator() {
       // Update script limit in Firestore
       await updateScriptLimit(user.uid);
       
-      // Get updated subscription and limits
-      const [updatedSubscription, newLimits] = await Promise.all([
-        getUserSubscription(user.uid, true),
-        checkScriptGenerationLimit(user.uid)
-      ]);
-      
-      // Update both states to reflect in navbar
-      setActiveSubscription(updatedSubscription);
-      setGenerationLimit(newLimits);
+      // Update subscription data in context
+      await updateSubscriptionData(user.uid);
 
       // Refresh script history
       fetchScriptHistory();
       
-      // Show success message
       toast.success('Script generated successfully!');
       
     } catch (error) {
@@ -210,7 +201,7 @@ export default function ScriptGenerator() {
     } finally {
       setIsGenerating(false);
     }
-  }, [user, input, fetchScriptHistory]);
+  }, [user, input, fetchScriptHistory, updateSubscriptionData]);
 
   // Function to format the script
   const formatScript = (script) => {
