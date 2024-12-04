@@ -1,220 +1,187 @@
 import { db } from './firebase';
-import { collection, doc, setDoc, getDoc, updateDoc, query, where, getDocs, orderBy } from 'firebase/firestore';
+import { doc, getDoc, collection, query, where, getDocs } from 'firebase/firestore';
 
-const PLAN_DETAILS = {
-  'Free': {
+// Plan configurations
+export const PLANS = {
+  FREE: {
     name: 'Free',
-    limit: 5,
+    price: 0,
+    scriptLimit: 5,
     limitType: 'total',
     features: [
-      '5 scripts total',
-      'Basic support',
-      'Standard templates'
+      'Generate up to 5 scripts',
+      'Basic script templates',
+      'Community support'
     ]
   },
-  'Starter': {
+  STARTER: {
     name: 'Starter',
-    limit: 50,
+    price: 499,
+    scriptLimit: 50,
     limitType: 'daily',
     features: [
-      '50 scripts per day',
-      '5 themes',
-      'Basic support',
-      '24/7 email support',
-      'Access to basic templates'
+      'Generate up to 50 scripts per day',
+      'Advanced script templates',
+      'Priority support',
+      'Custom script parameters',
+      'Script history'
     ]
   },
-  'Pro': {
+  PRO: {
     name: 'Pro',
-    limit: 200,
+    price: 1999,
+    scriptLimit: 200,
     limitType: 'daily',
     features: [
-      'Unlimited scripts',
-      'All themes',
+      'Generate up to 200 scripts per day',
+      'All Starter features',
+      'Premium script templates',
       'Priority support',
-      'Custom themes',
-      'Advanced analytics',
-      'Custom branding',
-      'API access'
+      'Advanced customization',
+      'API access',
+      'Team collaboration'
     ]
   }
 };
 
-export async function addSubscriptionToFirestore(subscriptionData) {
+/**
+ * Get user's subscription details
+ * @param {string} userId - The user's ID
+ * @param {boolean} includeDetails - Whether to include detailed plan information
+ * @returns {Promise<Object>} - The subscription details
+ */
+export async function getUserSubscription(userId, includeDetails = false) {
   try {
-    const planName = subscriptionData.planName || 'Free';
-    const subscriptionRef = doc(db, "subscriptions", subscriptionData.subscriptionId);
+    // First try to find active subscription with sub_ prefix
+    const subscriptionsRef = collection(db, "subscriptions");
+    const q = query(
+      subscriptionsRef,
+      where("userId", "==", userId),
+      where("status", "in", ["active", "trialing"]),
+      where("subscriptionId", ">=", "sub_"),
+      where("subscriptionId", "<=", "sub_\uf8ff")
+    );
     
-    const subscriptionDoc = {
-      ...subscriptionData,
-      planName: planName,
-      planDetails: PLAN_DETAILS[planName],
-      status: subscriptionData.status || 'active',
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      currentPeriodStart: subscriptionData.currentPeriodStart || new Date().toISOString(),
-      currentPeriodEnd: subscriptionData.currentPeriodEnd || null,
-      userId: subscriptionData.userId,
-      razorpaySubscriptionId: subscriptionData.razorpaySubscriptionId
-    };
+    const querySnapshot = await getDocs(q);
+    let subscriptionDoc = null;
 
-    await setDoc(subscriptionRef, subscriptionDoc);
+    if (!querySnapshot.empty) {
+      // Get the most recent active subscription
+      subscriptionDoc = querySnapshot.docs.reduce((latest, current) => {
+        if (!latest) return current;
+        return new Date(current.data().createdAt) > new Date(latest.data().createdAt) ? current : latest;
+      }, null);
+    }
 
-    // Also update the user's subscription document
-    const userSubscriptionRef = doc(db, 'subscriptions', subscriptionData.userId);
-    await setDoc(userSubscriptionRef, {
-      ...subscriptionDoc,
-      id: subscriptionData.subscriptionId
-    }, { merge: true });
-
-    return subscriptionDoc;
-  } catch (error) {
-    console.error("Error adding subscription:", error);
-    throw error;
-  }
-}
-
-export async function getUserSubscription(userId, forceRefresh = false) {
-  try {
-    // First try to get the user-specific subscription document
-    const userSubscriptionRef = doc(db, 'subscriptions', userId);
-    const userSubscriptionDoc = await getDoc(userSubscriptionRef);
-
-    // If we have a valid subscription and not forcing refresh, return it
-    if (userSubscriptionDoc.exists() && !forceRefresh) {
-      const data = userSubscriptionDoc.data();
-      if (data.planName && PLAN_DETAILS[data.planName]) {
-        return {
-          ...data,
-          planDetails: PLAN_DETAILS[data.planName]
-        };
+    // If no sub_ subscription found, check for legacy subscription
+    if (!subscriptionDoc) {
+      const directDocRef = doc(db, "subscriptions", userId);
+      const directDoc = await getDoc(directDocRef);
+      if (directDoc.exists() && directDoc.data().status === "active") {
+        subscriptionDoc = directDoc;
       }
     }
 
-    // If no valid subscription found or force refresh, check active subscriptions
-    const subscriptionsRef = collection(db, 'subscriptions');
-    const q = query(
-      subscriptionsRef,
-      where('userId', '==', userId),
-      where('status', '==', 'active'),
-      orderBy('createdAt', 'desc')
-    );
-
-    const querySnapshot = await getDocs(q);
-    const activeSubscription = querySnapshot.docs[0]?.data();
-
-    if (activeSubscription && activeSubscription.planName) {
-      const updatedSubscription = {
-        ...activeSubscription,
-        userId: userId,
-        planDetails: PLAN_DETAILS[activeSubscription.planName],
+    // If no subscription found, return free plan details
+    if (!subscriptionDoc) {
+      return {
+        userId,
+        planName: 'Free',
         status: 'active',
-        updatedAt: new Date().toISOString()
+        ...(includeDetails ? { planDetails: PLANS.FREE } : {})
       };
-
-      // Update the user's subscription document
-      await setDoc(userSubscriptionRef, updatedSubscription, { merge: true });
-      return updatedSubscription;
     }
 
-    // If no active subscription found, create/update with free plan
-    const defaultSubscription = {
-      userId: userId,
-      planName: 'Free',
-      planDetails: PLAN_DETAILS['Free'],
-      status: 'active',
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
-    };
-
-    await setDoc(userSubscriptionRef, defaultSubscription, { merge: true });
-    return defaultSubscription;
-
-  } catch (error) {
-    console.error('Error fetching user subscription:', error);
-    // Return default subscription in case of error
+    const subscriptionData = subscriptionDoc.data();
+    
+    // Handle case-insensitive plan name matching
+    const planKey = Object.keys(PLANS).find(
+      key => key.toLowerCase() === subscriptionData.planName?.toLowerCase()
+    ) || 'FREE';
+    
     return {
-      userId: userId,
+      ...subscriptionData,
+      id: subscriptionDoc.id,
+      planName: PLANS[planKey].name, // Use standardized plan name
+      ...(includeDetails ? { planDetails: PLANS[planKey] } : {})
+    };
+  } catch (error) {
+    console.error('Error fetching subscription:', error);
+    // Return free plan as fallback
+    return {
+      userId,
       planName: 'Free',
-      planDetails: PLAN_DETAILS['Free'],
-      status: 'active'
+      status: 'active',
+      ...(includeDetails ? { planDetails: PLANS.FREE } : {})
     };
   }
 }
 
-export async function updateSubscriptionStatus(subscriptionId, status, planName, periodEnd) {
+/**
+ * Check if user has an active subscription
+ * @param {string} userId - The user's ID
+ * @returns {Promise<boolean>} - Whether the user has an active subscription
+ */
+export async function hasActiveSubscription(userId) {
   try {
-    const subscriptionRef = doc(db, "subscriptions", subscriptionId);
-    const subscriptionDoc = await getDoc(subscriptionRef);
-    
-    if (!subscriptionDoc.exists()) {
-      throw new Error('Subscription not found');
-    }
-
-    const subscriptionData = subscriptionDoc.data();
-    const updateData = {
-      status,
-      planName,
-      planDetails: PLAN_DETAILS[planName],
-      currentPeriodEnd: periodEnd,
-      updatedAt: new Date().toISOString(),
-    };
-
-    // Update the subscription document
-    await updateDoc(subscriptionRef, updateData);
-
-    // Also update the user's subscription document
-    const userSubscriptionRef = doc(db, 'subscriptions', subscriptionData.userId);
-    await setDoc(userSubscriptionRef, {
-      ...updateData,
-      userId: subscriptionData.userId,
-      subscriptionId: subscriptionId
-    }, { merge: true });
-
+    const subscription = await getUserSubscription(userId);
+    return subscription.status === 'active' || subscription.status === 'trialing';
   } catch (error) {
-    console.error("Error updating subscription:", error);
-    throw error;
+    console.error('Error checking subscription status:', error);
+    return false;
   }
 }
 
-// Helper function to get plan details by name
-export function getPlanDetails(planName) {
-  return PLAN_DETAILS[planName] || PLAN_DETAILS['Free'];
+/**
+ * Get user's current plan details
+ * @param {string} userId - The user's ID
+ * @returns {Promise<Object>} - The plan details
+ */
+export async function getCurrentPlan(userId) {
+  try {
+    const subscription = await getUserSubscription(userId, true);
+    const planKey = subscription.planName?.toUpperCase() || 'FREE';
+    return PLANS[planKey] || PLANS.FREE;
+  } catch (error) {
+    console.error('Error getting current plan:', error);
+    return PLANS.FREE;
+  }
 }
 
-export async function cancelSubscription(subscriptionId) {
+/**
+ * Check if user can generate more scripts
+ * @param {string} userId - The user's ID
+ * @returns {Promise<boolean>} - Whether the user can generate more scripts
+ */
+export async function canGenerateScript(userId) {
   try {
-    const subscriptionRef = doc(db, 'subscriptions', subscriptionId);
+    const subscription = await getUserSubscription(userId, true);
+    const planKey = subscription.planName?.toUpperCase() || 'FREE';
+    const plan = PLANS[planKey] || PLANS.FREE;
     
-    // First check if subscription exists and is active
-    const subscriptionDoc = await getDoc(subscriptionRef);
-    if (!subscriptionDoc.exists()) {
-      throw new Error('Subscription not found');
+    // For free plan, check total scripts generated
+    if (planKey === 'FREE') {
+      const scriptsRef = collection(db, "scripts");
+      const q = query(scriptsRef, where("userId", "==", userId));
+      const querySnapshot = await getDocs(q);
+      return querySnapshot.size < plan.scriptLimit;
     }
-
-    const subscriptionData = subscriptionDoc.data();
-    const updateData = {
-      status: 'cancelled',
-      cancelledAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      planName: 'Free',
-      planDetails: PLAN_DETAILS['Free']
-    };
-
-    // Update both subscription documents
-    await updateDoc(subscriptionRef, updateData);
     
-    // Update user's subscription document
-    const userSubscriptionRef = doc(db, 'subscriptions', subscriptionData.userId);
-    await setDoc(userSubscriptionRef, {
-      ...updateData,
-      userId: subscriptionData.userId,
-      subscriptionId: subscriptionId
-    }, { merge: true });
-
-    return true;
+    // For paid plans, check daily limit
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    const scriptsRef = collection(db, "scripts");
+    const q = query(
+      scriptsRef,
+      where("userId", "==", userId),
+      where("createdAt", ">=", today)
+    );
+    
+    const querySnapshot = await getDocs(q);
+    return querySnapshot.size < plan.scriptLimit;
   } catch (error) {
-    console.error('Error cancelling subscription:', error);
-    throw error;
+    console.error('Error checking script generation limit:', error);
+    return false;
   }
 } 

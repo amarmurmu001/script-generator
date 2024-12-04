@@ -3,299 +3,168 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '@/lib/auth-context';
 import { useRouter } from 'next/navigation';
 import { Button } from "@/components/ui/button";
-import { db } from "@/lib/firebase";
-import { doc, getDoc, collection, query, where, getDocs, orderBy } from "firebase/firestore";
 import AuthCheck from '@/components/auth-check';
-import { AlertCircle, CheckCircle2, XCircle } from "lucide-react";
-import { toast } from 'react-hot-toast';
+import { getUserSubscription } from '@/lib/subscription';
+import { checkScriptGenerationLimit } from '@/lib/script-limits';
+import { Zap, CreditCard, Calendar, AlertCircle } from 'lucide-react';
+import Link from 'next/link';
 
-export default function SubscriptionPage() {
+export default function Subscription() {
   const { user } = useAuth();
   const router = useRouter();
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
   const [subscription, setSubscription] = useState(null);
-  const [confirmCancel, setConfirmCancel] = useState(false);
-  const [paymentHistory, setPaymentHistory] = useState([]);
+  const [generationLimit, setGenerationLimit] = useState(null);
 
   useEffect(() => {
-    const fetchSubscriptionAndPayments = async () => {
+    const fetchSubscriptionAndLimits = async () => {
       if (!user) return;
 
       try {
-        // Fetch subscription
-        const subscriptionsRef = collection(db, "subscriptions");
-        const q = query(
-          subscriptionsRef,
-          where("userId", "==", user.uid),
-          where("status", "in", ["active", "trialing"])
-        );
+        setLoading(true);
+        // Add a small delay to ensure auth is fully initialized
+        await new Promise(resolve => setTimeout(resolve, 500));
+
+        // Get user's subscription and limits in parallel
+        const [sub, limits] = await Promise.all([
+          getUserSubscription(user.uid, true).catch(error => {
+            console.error('Error fetching subscription:', error);
+            return {
+              userId: user.uid,
+              planName: 'Free',
+              status: 'active'
+            };
+          }),
+          checkScriptGenerationLimit(user.uid).catch(error => {
+            console.error('Error checking generation limit:', error);
+            return {
+              remaining: 5,
+              total: 5,
+              limitType: 'total'
+            };
+          })
+        ]);
         
-        const querySnapshot = await getDocs(q);
-        if (!querySnapshot.empty) {
-          const subData = querySnapshot.docs[0].data();
-          setSubscription({
-            ...subData,
-            id: querySnapshot.docs[0].id
-          });
-
-          // Fetch payment history
-          const paymentsRef = collection(db, "payments");
-          const paymentsQuery = query(
-            paymentsRef,
-            where("userId", "==", user.uid),
-            where("subscriptionId", "==", querySnapshot.docs[0].id),
-            orderBy("createdAt", "desc")
-          );
-
-          const paymentsSnapshot = await getDocs(paymentsQuery);
-          const payments = paymentsSnapshot.docs.map(doc => ({
-            id: doc.id,
-            ...doc.data()
-          }));
-          setPaymentHistory(payments);
-        }
+        setSubscription(sub);
+        setGenerationLimit(limits);
       } catch (error) {
-        console.error("Error fetching subscription:", error);
-        toast.error("Failed to load subscription data");
+        console.error('Error fetching subscription data:', error);
+        setError('Failed to load subscription data');
       } finally {
         setLoading(false);
       }
     };
 
-    fetchSubscriptionAndPayments();
+    fetchSubscriptionAndLimits();
   }, [user]);
 
-  const handleUpgrade = () => {
-    router.push('/pricing');
-  };
-
-  const handleCancelSubscription = async () => {
-    if (!subscription) return;
-
-    try {
-      setLoading(true);
-      const response = await fetch('/api/cancel-subscription', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          subscriptionId: subscription.id,
-          userId: user.uid
-        }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to cancel subscription');
-      }
-
-      // Update local state
-      setSubscription(prev => ({
-        ...prev,
-        status: 'cancelled',
-        cancelledAt: new Date().toISOString(),
-        planName: 'Free',
-        planDetails: {
-          name: 'Free',
-          limit: 5,
-          limitType: 'total'
-        }
-      }));
-      
-      toast.success('Subscription cancelled successfully');
-      setConfirmCancel(false);
-    } catch (error) {
-      console.error('Error cancelling subscription:', error);
-      toast.error(error.message || 'Failed to cancel subscription');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const getStatusBadge = (status) => {
-    const badges = {
-      active: { icon: CheckCircle2, className: "text-orange-500 dark:text-orange-400" },
-      cancelled: { icon: XCircle, className: "text-red-500 dark:text-red-400" },
-      pending: { icon: AlertCircle, className: "text-yellow-500 dark:text-yellow-400" }
-    };
-    const BadgeIcon = badges[status]?.icon || AlertCircle;
+  if (loading) {
     return (
-      <span className={`flex items-center gap-1 ${badges[status]?.className || ''}`}>
-        <BadgeIcon className="w-4 h-4" />
-        {status.charAt(0).toUpperCase() + status.slice(1)}
-      </span>
+      <div className="min-h-screen bg-gray-50 dark:bg-[#121212] flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500"></div>
+      </div>
     );
-  };
+  }
 
   return (
     <AuthCheck>
-      <div className="min-h-screen bg-gray-50 dark:bg-[#121212] py-12">
+      <div className="min-h-screen bg-gray-50 dark:bg-[#121212] py-6 sm:py-12">
         <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="bg-white dark:bg-[#171717] shadow rounded-lg p-6">
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">
-              Subscription Management
-            </h1>
-
-            {loading ? (
-              <div className="flex justify-center py-8">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500 dark:border-orange-400"></div>
+          <div className="bg-white dark:bg-[#171717] shadow rounded-lg">
+            <div className="px-4 py-4 sm:p-6">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 sm:gap-6 mb-6">
+                <h2 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">
+                  Subscription Details
+                </h2>
+                {subscription?.planName === 'Free' && (
+                  <Link href="/pricing">
+                    <Button className="w-full sm:w-auto bg-orange-500 hover:bg-orange-600">
+                      Upgrade Plan
+                    </Button>
+                  </Link>
+                )}
               </div>
-            ) : subscription ? (
+
+              {error && (
+                <div className="mb-4 p-3 text-sm sm:text-base bg-red-100 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded flex items-center gap-2">
+                  <AlertCircle className="h-4 w-4" />
+                  {error}
+                </div>
+              )}
+
               <div className="space-y-6">
-                {/* Current Plan Details */}
-                <div className="p-6 bg-gray-50 dark:bg-[#202020] rounded-lg">
-                  <div className="flex justify-between items-start mb-4">
-                    <div>
-                      <h2 className="text-lg font-medium text-gray-900 dark:text-white">
-                        Current Plan
-                      </h2>
-                      <p className="text-sm text-gray-500 dark:text-gray-400">
-                        {subscription.planName || 'Free Plan'}
-                      </p>
-                    </div>
-                    {getStatusBadge(subscription.status)}
+                {/* Current Plan */}
+                <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4">
+                  <div className="flex items-center gap-3 mb-4">
+                    <Zap className="h-5 w-5 text-orange-500" />
+                    <h3 className="text-lg font-medium text-gray-900 dark:text-white">
+                      Current Plan
+                    </h3>
                   </div>
-
-                  <div className="grid grid-cols-2 gap-4 mt-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
-                      <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Billing Period</p>
-                      <p className="text-sm text-gray-900 dark:text-white">
-                        {subscription.interval || 'Monthly'}
+                      <p className="text-sm text-gray-500 dark:text-gray-400">Plan Name</p>
+                      <p className="text-base font-medium text-gray-900 dark:text-white">
+                        {subscription?.planName || 'Free'} Plan
                       </p>
                     </div>
                     <div>
-                      <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Next Payment</p>
-                      <p className="text-sm text-gray-900 dark:text-white">
-                        {subscription.currentPeriodEnd ? 
-                          new Date(subscription.currentPeriodEnd).toLocaleDateString() : 
-                          'N/A'}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Amount</p>
-                      <p className="text-sm text-gray-900 dark:text-white">
-                        ₹{subscription.amount || '0'}/month
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Status</p>
-                      <p className="text-sm text-gray-900 dark:text-white">
-                        {subscription.status || 'N/A'}
+                      <p className="text-sm text-gray-500 dark:text-gray-400">Script Limit</p>
+                      <p className="text-base font-medium text-gray-900 dark:text-white">
+                        {generationLimit?.remaining}/{generationLimit?.total} {generationLimit?.limitType === 'daily' ? 'per day' : 'total'}
                       </p>
                     </div>
                   </div>
+                </div>
 
-                  <div className="mt-6 flex gap-4">
-                    {subscription.status === 'active' && (
-                      <>
-                        <Button
-                          onClick={handleUpgrade}
-                          className="bg-orange-500 hover:bg-orange-600 text-white"
-                        >
-                          Upgrade Plan
-                        </Button>
+                {/* Plan Features */}
+                <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4">
+                  <div className="flex items-center gap-3 mb-4">
+                    <CreditCard className="h-5 w-5 text-orange-500" />
+                    <h3 className="text-lg font-medium text-gray-900 dark:text-white">
+                      Plan Features
+                    </h3>
+                  </div>
+                  <ul className="space-y-2">
+                    {subscription?.planDetails?.features.map((feature, index) => (
+                      <li key={index} className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
+                        <span className="h-1.5 w-1.5 rounded-full bg-orange-500"></span>
+                        {feature}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+
+                {/* Billing Info - Only show for paid plans */}
+                {subscription?.planName !== 'Free' && (
+                  <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4">
+                    <div className="flex items-center gap-3 mb-4">
+                      <Calendar className="h-5 w-5 text-orange-500" />
+                      <h3 className="text-lg font-medium text-gray-900 dark:text-white">
+                        Billing Information
+                      </h3>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div>
+                        <p className="text-sm text-gray-500 dark:text-gray-400">Amount</p>
+                        <p className="text-base font-medium text-gray-900 dark:text-white">
+                          ₹{subscription?.planDetails?.price || 0}/month
+                        </p>
+                      </div>
+                      {subscription?.currentPeriodEnd && (
                         <div>
-                          {!confirmCancel ? (
-                            <Button
-                              onClick={() => setConfirmCancel(true)}
-                              variant="destructive"
-                              className="bg-red-500 hover:bg-red-600 text-white"
-                            >
-                              Cancel Subscription
-                            </Button>
-                          ) : (
-                            <div className="mt-4 p-4 border rounded-lg bg-red-50 dark:bg-red-900/20">
-                              <p className="text-sm text-red-600 dark:text-red-400 mb-4">
-                                Are you sure you want to cancel your subscription? You'll lose access to premium features.
-                              </p>
-                              <div className="flex space-x-4">
-                                <Button
-                                  onClick={handleCancelSubscription}
-                                  variant="destructive"
-                                  className="bg-red-500 hover:bg-red-600 text-white"
-                                  disabled={loading}
-                                >
-                                  {loading ? 'Cancelling...' : 'Yes, Cancel'}
-                                </Button>
-                                <Button
-                                  onClick={() => setConfirmCancel(false)}
-                                  variant="outline"
-                                  disabled={loading}
-                                >
-                                  No, Keep Subscription
-                                </Button>
-                              </div>
-                            </div>
-                          )}
+                          <p className="text-sm text-gray-500 dark:text-gray-400">Next Billing Date</p>
+                          <p className="text-base font-medium text-gray-900 dark:text-white">
+                            {new Date(subscription.currentPeriodEnd).toLocaleDateString()}
+                          </p>
                         </div>
-                      </>
-                    )}
-                    {subscription.status === 'cancelled' && (
-                      <Button
-                        onClick={handleUpgrade}
-                        className="bg-orange-500 hover:bg-orange-600 text-white"
-                      >
-                        Resubscribe
-                      </Button>
-                    )}
-                  </div>
-                </div>
-
-                {/* Payment History */}
-                <div className="border-t border-gray-200 dark:border-gray-700 pt-6">
-                  <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-4">
-                    Payment History
-                  </h2>
-                  <div className="bg-gray-50 dark:bg-[#202020] rounded-lg overflow-hidden">
-                    <div className="overflow-x-auto">
-                      <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-                        <thead className="bg-gray-100 dark:bg-[#171717]">
-                          <tr>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Date</th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Amount</th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Status</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-                          {paymentHistory.length > 0 ? (
-                            paymentHistory.map((payment) => (
-                              <tr key={payment.id}>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-300">
-                                  {new Date(payment.createdAt).toLocaleDateString()}
-                                </td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-300">
-                                  ₹{payment.amount}
-                                </td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm">
-                                  {getStatusBadge(payment.status)}
-                                </td>
-                              </tr>
-                            ))
-                          ) : (
-                            <tr>
-                              <td colSpan="3" className="px-6 py-4 text-center text-sm text-gray-500 dark:text-gray-400">
-                                No payment history available
-                              </td>
-                            </tr>
-                          )}
-                        </tbody>
-                      </table>
+                      )}
                     </div>
                   </div>
-                </div>
+                )}
               </div>
-            ) : (
-              <div className="text-center py-8">
-                <p className="text-gray-600 dark:text-gray-400 mb-4">No active subscription found</p>
-                <Button
-                  onClick={() => router.push('/pricing')}
-                  className="bg-orange-500 hover:bg-orange-600 text-white"
-                >
-                  View Plans
-                </Button>
-              </div>
-            )}
+            </div>
           </div>
         </div>
       </div>

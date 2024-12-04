@@ -65,10 +65,27 @@ export default function Navbar() {
     const fetchSubscriptionAndLimits = async () => {
       if (!user) return;
       try {
+        // Add a small delay to ensure auth is fully initialized
+        await new Promise(resolve => setTimeout(resolve, 500));
+
         // Get user's subscription and limits in parallel
         const [subscription, limits] = await Promise.all([
-          getUserSubscription(user.uid, true),
-          checkScriptGenerationLimit(user.uid)
+          getUserSubscription(user.uid, true).catch(error => {
+            console.error('Error fetching subscription:', error);
+            return {
+              userId: user.uid,
+              planName: 'Free',
+              status: 'active'
+            };
+          }),
+          checkScriptGenerationLimit(user.uid).catch(error => {
+            console.error('Error checking generation limit:', error);
+            return {
+              remaining: 5,
+              total: 5,
+              limitType: 'total'
+            };
+          })
         ]);
         
         setUserSubscription(subscription);

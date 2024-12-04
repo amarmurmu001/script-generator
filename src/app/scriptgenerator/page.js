@@ -131,6 +131,11 @@ export default function ScriptGenerator() {
 
   const generateScript = useCallback(async () => {
     if (!user) return;
+    if (!input || !input.trim()) {
+      toast.error('Please enter a prompt first');
+      return;
+    }
+    
     setIsGenerating(true);
     setError('');
     
@@ -146,7 +151,7 @@ export default function ScriptGenerator() {
       // Add timestamp to the script data
       const scriptData = {
         userId: user.uid,
-        input: input,
+        input: input.trim(), // Store the trimmed input
         script: '', // Will be updated after generation
         createdAt: Timestamp.now(),
         updatedAt: Timestamp.now(),
@@ -162,7 +167,7 @@ export default function ScriptGenerator() {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ prompt: input }),
+        body: JSON.stringify({ input: input.trim() }), // Send the trimmed input
       });
 
       if (!response.ok) {

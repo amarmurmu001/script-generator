@@ -22,28 +22,37 @@ service cloud.firestore {
     
     match /subscriptions/{subscriptionId} {
       allow read: if isAuthenticated() && (
-        resource.data.userId == request.auth.uid || 
+        (resource == null) || // Allow reading non-existent documents
+        (resource != null && resource.data.userId == request.auth.uid) || 
         subscriptionId == request.auth.uid
       );
       allow write: if isAuthenticated() && (
-        resource.data.userId == request.auth.uid || 
+        (resource == null) || // Allow writing to non-existent documents
+        (resource != null && resource.data.userId == request.auth.uid) || 
         subscriptionId == request.auth.uid
       );
       
-      // Add index for faster queries
-      allow list: if isAuthenticated() && 
-                    resource.data.userId == request.auth.uid;
+      // Allow listing subscriptions for the authenticated user
+      allow list: if isAuthenticated() && (
+        resource == null || 
+        resource.data.userId == request.auth.uid
+      );
     }
 
     match /scripts/{scriptId} {
-      allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      allow read: if isAuthenticated() && (
+        resource == null || 
+        resource.data.userId == request.auth.uid
+      );
       allow create: if isAuthenticated() && isValidScript();
       allow update: if isAuthenticated() && resource.data.userId == request.auth.uid;
       allow delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
       
-      // Add index for faster queries
-      allow list: if isAuthenticated() && 
-                    resource.data.userId == request.auth.uid;
+      // Allow listing scripts for the authenticated user
+      allow list: if isAuthenticated() && (
+        resource == null || 
+        resource.data.userId == request.auth.uid
+      );
     }
   }
 } 

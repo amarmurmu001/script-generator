@@ -21,12 +21,14 @@ export default function SubscriptionCheck({ children }) {
         // Wait for a short delay to ensure auth is fully initialized
         await new Promise(resolve => setTimeout(resolve, 1000));
         
-        // Check if user has an active subscription
+        // Check if user has an active subscription with sub_ prefix
         const subscriptionsRef = collection(db, "subscriptions");
         const q = query(
           subscriptionsRef,
           where("userId", "==", user.uid),
-          where("status", "==", "active")
+          where("status", "in", ["active", "trialing"]),
+          where("subscriptionId", ">=", "sub_"),
+          where("subscriptionId", "<=", "sub_\uf8ff")
         );
         
         await getDocs(q);
