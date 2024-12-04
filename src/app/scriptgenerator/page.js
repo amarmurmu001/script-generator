@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import AuthCheck from '@/components/auth-check';
 import { useAuth } from '@/lib/auth-context';
 import SubscriptionCheck from '@/components/subscription-check';
-import { checkScriptGenerationLimit } from '@/lib/script-limits';
+import { checkScriptGenerationLimit, updateScriptLimit } from '@/lib/script-limits';
 import { getUserSubscription } from '@/lib/subscription';
 import { toast } from 'react-hot-toast';
 import { useRouter } from 'next/navigation';
@@ -185,8 +185,17 @@ export default function ScriptGenerator() {
 
       setGeneratedScript(data.script);
       
-      // Update limits after successful generation
-      const newLimits = await checkScriptGenerationLimit(user.uid);
+      // Update script limit in Firestore
+      await updateScriptLimit(user.uid);
+      
+      // Get updated subscription and limits
+      const [updatedSubscription, newLimits] = await Promise.all([
+        getUserSubscription(user.uid, true),
+        checkScriptGenerationLimit(user.uid)
+      ]);
+      
+      // Update both states to reflect in navbar
+      setActiveSubscription(updatedSubscription);
       setGenerationLimit(newLimits);
 
       // Refresh script history
