@@ -151,7 +151,7 @@ export default function Navbar() {
               variant="ghost"
               size="icon"
               onClick={toggleDarkMode}
-              className="h-8 w-8 sm:h-9 sm:w-9 text-gray-400 hover:text-gray-600 dark:hover:text-white"
+              className="h-8 w-8 sm:h-9 sm:w-9 text-gray-400 hover:text-white dark:hover:text-white"
             >
               {isDarkMode ? <Sun className="h-4 w-4 sm:h-5 sm:w-5" /> : <Moon className="h-4 w-4 sm:h-5 sm:w-5" />}
             </Button>

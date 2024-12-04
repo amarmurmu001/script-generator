@@ -1,96 +1,152 @@
-import { collection, query, where, getDocs, Timestamp } from 'firebase/firestore';
+import { collection, query, where, getDocs, Timestamp, doc, updateDoc, getDoc } from 'firebase/firestore';
 import { db } from './firebase';
 import { getUserSubscription } from './subscription';
 
 // Add caching for script limits
 let limitsCache = new Map();
 
-export async function checkScriptGenerationLimit(userId) {
-  const cacheKey = `${userId}_${new Date().toDateString()}`;
-  
-  // Return cached value if it exists and is less than 1 minute old
-  const cached = limitsCache.get(cacheKey);
-  if (cached && Date.now() - cached.timestamp < 60000) {
-    return cached.data;
-  }
-
+/**
+ * Update the script limit for a user
+ * @param {string} userId - The user's ID
+ * @returns {Promise<boolean>} - Whether the script can be generated
+ */
+export async function updateScriptLimit(userId) {
   try {
-    // Get user's subscription and plan details
-    const subscription = await getUserSubscription(userId);
-    console.log('Subscription data in checkScriptGenerationLimit:', subscription);
-
-    if (!subscription || !subscription.planDetails) {
-      console.error('Invalid subscription data:', subscription);
-      // Create default subscription if none exists
-      const defaultSubscription = await getUserSubscription(userId);
-      return {
-        canGenerate: true,
-        remaining: defaultSubscription.planDetails.limit,
-        total: defaultSubscription.planDetails.limit,
-        planName: defaultSubscription.planName,
-        limitType: defaultSubscription.planDetails.limitType
-      };
-    }
-
-    const { planDetails } = subscription;
-    console.log('Plan details:', planDetails);
-    
-    // For free users or total limit plans
-    if (planDetails.limitType === 'total') {
-      const scriptsRef = collection(db, 'scripts');
-      const q = query(
-        scriptsRef,
-        where('userId', '==', userId)
-      );
-
-      const querySnapshot = await getDocs(q);
-      const totalScripts = querySnapshot.size;
-      console.log('Total scripts count:', totalScripts);
-
-      return {
-        canGenerate: totalScripts < planDetails.limit,
-        remaining: Math.max(0, planDetails.limit - totalScripts),
-        total: planDetails.limit,
-        planName: subscription.planName,
-        limitType: planDetails.limitType,
-        planDetails: planDetails
-      };
-    }
-
-    // For paid users with daily limits
-    const now = new Date();
-    const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const endOfDay = new Date(startOfDay);
-    endOfDay.setDate(startOfDay.getDate() + 1);
-
-    const scriptsRef = collection(db, 'scripts');
+    const subscription = await getUserSubscription(userId, true);
+    const subscriptionsRef = collection(db, "subscriptions");
     const q = query(
-      scriptsRef,
-      where('userId', '==', userId),
-      where('createdAt', '>=', Timestamp.fromDate(startOfDay))
+      subscriptionsRef,
+      where("userId", "==", userId),
+      where("status", "in", ["active", "trialing"])
     );
-
+    
     const querySnapshot = await getDocs(q);
-    const scriptsGeneratedToday = querySnapshot.size;
+    if (querySnapshot.empty) {
+      return false;
+    }
 
-    const limits = {
-      canGenerate: scriptsGeneratedToday < planDetails.limit,
-      remaining: Math.max(0, planDetails.limit - scriptsGeneratedToday),
-      total: planDetails.limit,
-      planName: subscription.planName,
-      planDetails: planDetails,
-      limitType: planDetails.limitType
+    const subscriptionDoc = querySnapshot.docs[0];
+    const subscriptionData = subscriptionDoc.data();
+    const scriptLimit = subscriptionData.scriptLimit || {
+      total: subscription.planDetails.scriptLimit,
+      remaining: subscription.planDetails.scriptLimit,
+      limitType: subscription.planDetails.limitType,
+      lastReset: new Date().toISOString()
     };
 
-    // Cache the result
-    limitsCache.set(cacheKey, {
-      data: limits,
-      timestamp: Date.now()
+    // Check if daily limit needs to be reset
+    if (scriptLimit.limitType === 'daily') {
+      const lastReset = new Date(scriptLimit.lastReset);
+      const now = new Date();
+      if (lastReset.getDate() !== now.getDate() || lastReset.getMonth() !== now.getMonth() || lastReset.getFullYear() !== now.getFullYear()) {
+        scriptLimit.remaining = scriptLimit.total;
+        scriptLimit.lastReset = now.toISOString();
+      }
+    }
+
+    // Check if user has remaining scripts
+    if (scriptLimit.remaining <= 0) {
+      return false;
+    }
+
+    // Update the remaining count
+    scriptLimit.remaining--;
+
+    // Update Firestore
+    await updateDoc(doc(db, "subscriptions", subscriptionDoc.id), {
+      scriptLimit
     });
 
-    return limits;
+    // Update cache
+    limitsCache.set(userId, scriptLimit);
+
+    return true;
   } catch (error) {
-    console.error('Error checking script generation limit:', error);
-    throw error;
+    console.error('Error updating script limit:', error);
+    return false;
+  }
+}
+
+/**
+ * Check script generation limit for a user
+ * @param {string} userId - The user's ID
+ * @returns {Promise<Object>} - The limit details
+ */
+export async function checkScriptGenerationLimit(userId) {
+  try {
+    // Check cache first
+    if (limitsCache.has(userId)) {
+      const cachedLimit = limitsCache.get(userId);
+      const lastReset = new Date(cachedLimit.lastReset);
+      const now = new Date();
+      
+      // If it's a daily limit and the day has changed, invalidate cache
+      if (cachedLimit.limitType === 'daily' && 
+          (lastReset.getDate() !== now.getDate() || 
+           lastReset.getMonth() !== now.getMonth() || 
+           lastReset.getFullYear() !== now.getFullYear())) {
+        limitsCache.delete(userId);
+      } else {
+        return cachedLimit;
+      }
+    }
+
+    const subscription = await getUserSubscription(userId, true);
+    const subscriptionsRef = collection(db, "subscriptions");
+    const q = query(
+      subscriptionsRef,
+      where("userId", "==", userId),
+      where("status", "in", ["active", "trialing"])
+    );
+    
+    const querySnapshot = await getDocs(q);
+    if (querySnapshot.empty) {
+      const defaultLimit = {
+        total: subscription.planDetails.scriptLimit,
+        remaining: subscription.planDetails.scriptLimit,
+        limitType: subscription.planDetails.limitType,
+        lastReset: new Date().toISOString()
+      };
+      limitsCache.set(userId, defaultLimit);
+      return defaultLimit;
+    }
+
+    const subscriptionDoc = querySnapshot.docs[0];
+    const subscriptionData = subscriptionDoc.data();
+    const scriptLimit = subscriptionData.scriptLimit || {
+      total: subscription.planDetails.scriptLimit,
+      remaining: subscription.planDetails.scriptLimit,
+      limitType: subscription.planDetails.limitType,
+      lastReset: new Date().toISOString()
+    };
+
+    // Check if daily limit needs to be reset
+    if (scriptLimit.limitType === 'daily') {
+      const lastReset = new Date(scriptLimit.lastReset);
+      const now = new Date();
+      if (lastReset.getDate() !== now.getDate() || lastReset.getMonth() !== now.getMonth() || lastReset.getFullYear() !== now.getFullYear()) {
+        scriptLimit.remaining = scriptLimit.total;
+        scriptLimit.lastReset = now.toISOString();
+        
+        // Update Firestore
+        await updateDoc(doc(db, "subscriptions", subscriptionDoc.id), {
+          scriptLimit
+        });
+      }
+    }
+
+    // Update cache
+    limitsCache.set(userId, scriptLimit);
+
+    return scriptLimit;
+  } catch (error) {
+    console.error('Error checking script limit:', error);
+    // Return free plan limits as fallback
+    return {
+      total: 5,
+      remaining: 5,
+      limitType: 'total',
+      lastReset: new Date().toISOString()
+    };
   }
 } 

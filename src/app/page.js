@@ -472,213 +472,36 @@ export default function LandingPage() {
             </div>
           </div>
         </section>
-        {!user && (
-          <section id="cta" className="w-full py-12 md:py-24 lg:py-32 bg-orange-500 dark:bg-orange-600 text-white">
-            <div className="container mx-auto">
-              <div className="flex flex-col items-center space-y-4 text-center">
-                <div className="space-y-2">
-                  <h2 className="text-3xl font-bold tracking-tighter sm:text-5xl">
-                    Ready to Transform Your Content?
-                  </h2>
-                  <p className="mx-auto max-w-[600px] text-gray-200 md:text-xl/relaxed lg:text-base/relaxed xl:text-xl/relaxed">
-                    Join thousands of content creators who are already using ScriptGenius to create engaging video scripts.
-                  </p>
-                </div>
-                <div className="w-full max-w-sm space-y-2">
-                  <form className="flex space-x-2">
-                    <Input
-                      id="email"
-                      className={cn(
-                        "flex-1 bg-white/10 text-white placeholder-white/50 border-white/20",
-                        "focus:border-white focus:ring-2 focus:ring-white focus:ring-opacity-50",
-                        "transition-all duration-200 ease-in-out",
-                        !isValid && "border-red-500 focus:border-red-500 focus:ring-red-500"
-                      )}
-                      placeholder="Enter your email"
-                      type="email"
-                      value={email}
-                      onChange={handleEmailChange}
-                      required
-                      aria-invalid={!isValid}
-                      aria-describedby="email-error"
-                    />
-                    <Button type="submit" className="bg-white text-purple-700 hover:bg-gray-100 dark:bg-gray-800 dark:text-purple-400 dark:hover:bg-gray-700">
-                      Get Started
-                    </Button>
-                  </form>
-                  <p className="text-xs text-gray-300">
-                    Start your free 14-day trial. No credit card required.
-                  </p>
-                </div>
-              </div>
-            </div>
-          </section>
-        )}
       </main>
-      <footer className="w-full bg-[#121212] text-white">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          {/* Main Footer Content */}
-          <div className="grid grid-cols-1 gap-8 py-12 md:grid-cols-2 lg:grid-cols-5 lg:gap-12">
-            {/* Brand Column */}
-            <div className="lg:col-span-2">
-              <Link href="/" className="inline-flex items-center space-x-2 mb-6">
-                <BrainCircuit className="h-6 w-6 text-orange-500" />
-                <span className="text-2xl font-bold text-white">
-                  ScriptGenius
-                </span>
-              </Link>
-              <p className="text-gray-300 text-sm mb-6 max-w-md">
-                Transform your content creation process with AI-powered script generation. Create engaging YouTube Shorts scripts in seconds.
-              </p>
-              <div className="space-y-4">
-                <div className="flex items-center space-x-3">
-                  <Mail className="h-5 w-5 text-orange-500" />
-                  <a href="mailto:support@scriptgenius.com" className="text-gray-300 hover:text-white transition-colors">
-                    support@scriptgenius.com
-                  </a>
-                </div>
-                <div className="flex items-center space-x-3">
-                  <MapPin className="h-5 w-5 text-orange-500" />
-                  <span className="text-gray-300">
-                    Mumbai, India
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            {/* Quick Links */}
-            <div>
-              <h3 className="text-sm font-semibold uppercase tracking-wider mb-4">
-                Quick Links
-              </h3>
-              <ul className="space-y-3">
-                <li>
-                  <Link href="/#features" className="text-gray-300 hover:text-white transition-colors">
-                    Features
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/#pricing" className="text-gray-300 hover:text-white transition-colors">
-                    Pricing
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/#faq" className="text-gray-300 hover:text-white transition-colors">
-                    FAQ
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/blog" className="text-gray-300 hover:text-white transition-colors">
-                    Blog
-                  </Link>
-                </li>
-              </ul>
-            </div>
-
-            {/* Legal */}
-            <div>
-              <h3 className="text-sm font-semibold uppercase tracking-wider mb-4">
-                Legal
-              </h3>
-              <ul className="space-y-3">
-                <li>
-                  <Link href="/privacy" className="text-gray-300 hover:text-white transition-colors">
-                    Privacy Policy
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/terms" className="text-gray-300 hover:text-white transition-colors">
-                    Terms of Service
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/cookies" className="text-gray-300 hover:text-white transition-colors">
-                    Cookie Policy
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/gdpr" className="text-gray-300 hover:text-white transition-colors">
-                    GDPR
-                  </Link>
-                </li>
-              </ul>
-            </div>
-
-            {/* Social & Newsletter */}
-            <div>
-              <h3 className="text-sm font-semibold uppercase tracking-wider mb-4">
-                Stay Connected
-              </h3>
-              {/* Social Links */}
-              <div className="flex space-x-4 mb-6">
-                <a 
-                  href="https://twitter.com/scriptgenius" 
-                  target="_blank" 
-                  rel="noopener noreferrer"
-                  className="text-gray-400 hover:text-white transition-colors"
-                >
-                  <Twitter className="h-6 w-6" />
-                  <span className="sr-only">Twitter</span>
-                </a>
-                <a 
-                  href="https://linkedin.com/company/scriptgenius" 
-                  target="_blank" 
-                  rel="noopener noreferrer"
-                  className="text-gray-400 hover:text-white transition-colors"
-                >
-                  <Linkedin className="h-6 w-6" />
-                  <span className="sr-only">LinkedIn</span>
-                </a>
-                <a 
-                  href="https://youtube.com/@scriptgenius" 
-                  target="_blank" 
-                  rel="noopener noreferrer"
-                  className="text-gray-400 hover:text-white transition-colors"
-                >
-                  <Youtube className="h-6 w-6" />
-                  <span className="sr-only">YouTube</span>
-                </a>
-              </div>
-              {/* Newsletter */}
-              <div>
-                <h4 className="text-sm font-medium text-white mb-3">
-                  Subscribe to our newsletter
-                </h4>
-                <form className="flex flex-col space-y-2">
-                  <Input
-                    type="email"
-                    placeholder="Enter your email"
-                    className="bg-gray-800 border-gray-700 text-white placeholder-gray-400 focus:ring-orange-500 focus:border-orange-500"
-                  />
-                  <Button className="bg-orange-500 hover:bg-orange-600 text-white">
-                    Subscribe
-                  </Button>
-                </form>
-              </div>
-            </div>
+      <footer className="w-full py-4 bg-white dark:bg-[#121212] border-t border-gray-200 dark:border-gray-800 text-gray-600 dark:text-gray-400">
+        <div className="container mx-auto px-4 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span>✨</span>
+            <span>Designed and created by</span>
+            <a 
+              href="https://x.com/amarmurmu001" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="font-mono text-gray-900 dark:text-white hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+            >
+              @Amar_Murmu
+            </a>
+            <span>🚀</span>
           </div>
-
-          {/* Bottom Bar */}
-          <div className="border-t border-gray-800 py-6">
-            <div className="flex flex-col sm:flex-row justify-between items-center space-y-4 sm:space-y-0">
-              <p className="text-sm text-gray-400">
-                © {new Date().getFullYear()} ScriptGenius. All rights reserved.
-              </p>
-              <div className="flex items-center space-x-4">
-                <Link href="/sitemap" className="text-sm text-gray-400 hover:text-white transition-colors">
-                  Sitemap
-                </Link>
-                <Link href="/accessibility" className="text-sm text-gray-400 hover:text-white transition-colors">
-                  Accessibility
-                </Link>
-                <div className="flex items-center space-x-2">
-                  <span className="text-sm text-gray-400">Made with</span>
-                  <Heart className="h-4 w-4 text-red-500" />
-                  <span className="text-sm text-gray-400">in India</span>
-                </div>
-              </div>
-            </div>
-          </div>
+          <a
+            href="https://github.com/AmarMurmu001"
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label="GitHub repository"
+          >
+            <svg
+              viewBox="0 0 24 24"
+              className="h-6 w-6 text-gray-900 dark:text-white hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+              fill="currentColor"
+            >
+              <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
+            </svg>
+          </a>
         </div>
       </footer>
     </div>

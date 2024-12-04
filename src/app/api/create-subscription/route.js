@@ -75,7 +75,15 @@ export async function POST(req) {
       paymentLinkId: paymentLink.id,
       shortUrl: paymentLink.short_url,
       amount: plan.item.amount,
-      planName: plan.item.name
+      planName: plan.item.name,
+      scriptLimit: {
+        total: plan.item.name.toLowerCase().includes('pro') ? 200 : 
+               plan.item.name.toLowerCase().includes('starter') ? 50 : 5,
+        remaining: plan.item.name.toLowerCase().includes('pro') ? 200 : 
+                  plan.item.name.toLowerCase().includes('starter') ? 50 : 5,
+        limitType: plan.item.name.toLowerCase().includes('free') ? 'total' : 'daily',
+        lastReset: new Date().toISOString()
+      }
     };
 
     await adminDb
