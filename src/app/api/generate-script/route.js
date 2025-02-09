@@ -1,11 +1,6 @@
 import { NextResponse } from "next/server";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { headers } from "next/headers";
-import {
-  getCachedScript,
-  setCachedScript,
-  generateCacheKey,
-} from "@/lib/cache";
 
 // Initialize rate limiting map
 const rateLimitMap = new Map();
@@ -44,14 +39,6 @@ const genAI = new GoogleGenerativeAI(apiKey);
 
 async function generateText(prompt, input, category, tags) {
   try {
-    // Check cache first
-    const cacheKey = generateCacheKey(input, category, tags);
-    const cachedResult = getCachedScript(cacheKey);
-    if (cachedResult) {
-      console.log("Cache hit for:", cacheKey);
-      return cachedResult;
-    }
-
     const model = genAI.getGenerativeModel({ model: "gemini-pro" });
 
     // Add safety settings
@@ -79,9 +66,6 @@ async function generateText(prompt, input, category, tags) {
 
     const response = await result.response;
     const generatedText = response.text().replace(/\*\*(.*?)\*\*/g, "$1");
-
-    // Cache the result
-    setCachedScript(cacheKey, generatedText);
 
     return generatedText;
   } catch (error) {
