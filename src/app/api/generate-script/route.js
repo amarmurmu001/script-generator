@@ -11,16 +11,12 @@ const MAX_REQUESTS = 10; // 10 requests per minute
 function checkRateLimit(ip) {
   const now = Date.now();
   const userRequests = rateLimitMap.get(ip) || [];
-
-  // Remove old requests
-  const recentRequests = userRequests.filter(
-    (time) => now - time < RATE_LIMIT_DURATION
-  );
-
+  const recentRequests = userRequests.filter(time => now - time < RATE_LIMIT_DURATION);
+  
   if (recentRequests.length >= MAX_REQUESTS) {
     return false;
   }
-
+  
   recentRequests.push(now);
   rateLimitMap.set(ip, recentRequests);
   return true;
@@ -39,7 +35,7 @@ const genAI = new GoogleGenerativeAI(apiKey);
 
 async function generateText(prompt, input, category, tags) {
   try {
-    const model = genAI.getGenerativeModel({ model: "gemini-pro" });
+    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
 
     // Add safety settings
     const safetySettings = [
@@ -88,7 +84,7 @@ export async function POST(req) {
     // Get client IP for rate limiting
     const headersList = headers();
     const ip = headersList.get("x-forwarded-for") || "unknown";
-
+    
     // Check rate limit
     if (!checkRateLimit(ip)) {
       return NextResponse.json(
@@ -97,135 +93,100 @@ export async function POST(req) {
       );
     }
 
-    // Validate API key
-    if (!apiKey) {
+    const { input } = await req.json();
+
+    if (!input || typeof input !== 'string') {
       return NextResponse.json(
-        { error: "API configuration error" },
+        { error: "Invalid input. Please provide a valid text prompt." },
+        { status: 400 }
+      );
+    }
+
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) {
+      console.error("Missing Gemini API key");
+      return NextResponse.json(
+        { error: "Server configuration error" },
         { status: 500 }
       );
     }
 
-    const { input, category = "general", tags = [] } = await req.json();
+    // Initialize Gemini AI
+    const genAI = new GoogleGenerativeAI(apiKey);
+    const model = genAI.getGenerativeModel({ 
+      model: "gemini-2.0-flash"
+    });
 
-    // Input validation
-    if (!input || typeof input !== "string") {
-      return NextResponse.json(
-        { error: "Invalid input provided" },
-        { status: 400 }
-      );
-    }
+    const prompt = `Create an engaging YouTube Shorts script about ${input}. 
+    The script must follow this EXACT format with line breaks (do not include any other text or formatting):
 
-    const trimmedInput = input.trim();
-    if (!trimmedInput || trimmedInput.length < 2) {
-      return NextResponse.json(
-        { error: "Input too short. Please provide more context." },
-        { status: 400 }
-      );
-    }
+    "[An engaging question about the theme that hooks viewers]"
 
-    if (trimmedInput.length > 200) {
-      return NextResponse.json(
-        { error: "Input too long. Please keep it under 200 characters." },
-        { status: 400 }
-      );
-    }
+    "[First Option]: [One word] - [2-3 word compelling explanation]"
 
-    console.log("Input received:", trimmedInput);
+    "[Second Option]: [One word] - [2-3 word compelling explanation]"
 
-    const prompt = `Generate an engaging YouTube Shorts CTA video script for the theme: "${trimmedInput}".
+    "[Third Option]: [One word] - [2-3 word compelling explanation]"
 
-Instructions:
-Create a script following this EXACT format (keep the exact formatting, quotation marks, and line breaks):
+    "[Fourth Option]: [One word] - [2-3 word compelling explanation]"
 
-"[A short, engaging question about the theme]"
+    "[One engaging line that includes both a call-to-action to comment and a FOMO-inducing statement]"
 
-"[First Option]: [One word] - [2-3 word compelling explanation]"
+    Example format:
+    "Calling all Yamaha enthusiasts! Which beast do you love the most?"
 
-"[Second Option]: [One word] - [2-3 word compelling explanation]"
+    "YZF-R1: Unleash the racing spirit."
 
-"[Third Option]: [One word] - [2-3 word compelling explanation]"
+    "MT-10: Master the urban jungle."
 
-"[Fourth Option]: [One word] - [2-3 word compelling explanation]"
+    "XSR900: The modern-classic outlaw."
 
-"[One engaging line that includes both a call-to-action to comment and a FOMO-inducing statement]"
+    "Niken: Conquer the curves with three wheels."
 
-Example Format:
-"Which car is driving your style?"
+    "Share your choice and let's ride together!"
 
-"Classic: Timeless vibes, refined luxury"
+    Follow this format exactly with double quote, keeping options concise with one primary word followed by a short explanation. Make the CTA engaging and include both a comment prompt and FOMO element. Use conversational, TikTok-style language.`;
 
-"Sports: Adrenaline rush, head-turning performance"
+    try {
+      const result = await model.generateContent(prompt);
+      const response = await result.response;
+      const script = response.text();
 
-"SUV: Adventure-ready, spacious comfort"
-
-"Electric: Eco-friendly, futuristic freedom"
-
-"Choose your ride, comment below! Don't miss out on the hottest car trends. Like us for more auto awesomeness!"
-
-Guidelines:
-- Use exact format with quotation marks and line breaks as shown
-- Keep options concise: one primary word followed by 2-3 word explanation
-- Make the CTA engaging and include both comment prompt and FOMO element
-- Use conversational, TikTok-style language
-- Keep everything punchy and trendy
-- Consider the category: ${category}
-- Incorporate relevant tags: ${tags.join(", ")}`;
-
-    const generatedText = await generateText(prompt, input, category, tags);
-
-    if (!generatedText || typeof generatedText !== "string") {
-      throw new Error("Invalid response format");
-    }
-
-    // Validate generated content format
-    const lines = generatedText.split("\n").filter((line) => line.trim());
-    if (lines.length < 6) {
-      throw new Error("Generated content format invalid");
-    }
-
-    return NextResponse.json(
-      {
-        script: generatedText,
-        timestamp: new Date().toISOString(),
-        requestId: Math.random().toString(36).substring(7),
-        category,
-        tags,
-      },
-      {
-        status: 200,
-        headers: {
-          "Cache-Control": "no-store",
-          "Content-Type": "application/json",
-        },
+      if (!script) {
+        throw new Error("Empty response from AI model");
       }
-    );
-  } catch (error) {
-    console.error("Error generating script:", error);
 
-    let status = 500;
-    let message = "Error generating script";
-
-    if (error.message?.includes("API key")) {
-      status = 401;
-      message = "API configuration error";
-    } else if (
-      error.message?.includes("rate limit") ||
-      error.message?.includes("quota")
-    ) {
-      status = 429;
-      message = "Rate limit exceeded. Please try again later";
-    } else if (error.message?.includes("format invalid")) {
-      status = 422;
-      message = "Failed to generate proper content format";
-    }
-
-    return NextResponse.json(
-      {
-        error: message,
+      return NextResponse.json({ 
+        script,
         timestamp: new Date().toISOString(),
-        requestId: Math.random().toString(36).substring(7),
-      },
-      { status }
+        requestId: Math.random().toString(36).substring(7)
+      });
+    } catch (modelError) {
+      console.error("AI Model error:", modelError);
+      
+      // Handle specific API errors
+      if (modelError.message?.includes("API key")) {
+        return NextResponse.json(
+          { error: "Invalid API configuration" },
+          { status: 401 }
+        );
+      } else if (modelError.message?.includes("quota") || modelError.message?.includes("rate")) {
+        return NextResponse.json(
+          { error: "API rate limit exceeded" },
+          { status: 429 }
+        );
+      }
+      
+      return NextResponse.json(
+        { error: "Failed to generate script. Please try again." },
+        { status: 503 }
+      );
+    }
+  } catch (error) {
+    console.error("Server error:", error);
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 }
     );
   }
 }

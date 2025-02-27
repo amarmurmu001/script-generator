@@ -4,22 +4,18 @@ const nextConfig = {
     remotePatterns: [
       {
         protocol: 'https',
-        hostname: 'lh3.googleusercontent.com',
-        pathname: '/a/**',
-      },
-      {
-        protocol: 'https',
-        hostname: '*.googleusercontent.com',
-      },
-      {
-        protocol: 'https',
         hostname: 'firebasestorage.googleapis.com',
+      },
+      {
+        protocol: 'https',
+        hostname: 'lh3.googleusercontent.com',
       },
     ],
   },
-  experimental: {
-    serverActions: true
-  }
+  // Server Actions are enabled by default in Next.js 14
+  // experimental: {
+  //   serverActions: true,
+  // },
 }
 
 module.exports = nextConfig 

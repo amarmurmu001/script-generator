@@ -4,80 +4,83 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth-context';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import { toast } from 'react-hot-toast';
 
 export default function SubscriptionCheck({ children }) {
-  const { user } = useAuth();
   const [loading, setLoading] = useState(true);
+  const [hasAccess, setHasAccess] = useState(false);
   const router = useRouter();
+  const { user } = useAuth();
 
   useEffect(() => {
-    const checkAccess = async () => {
+    const checkSubscription = async () => {
       if (!user) {
         setLoading(false);
+        router.push('/login');
         return;
       }
 
       try {
-        // Wait for a short delay to ensure auth is fully initialized
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        
-        // Check if user has an active subscription with sub_ prefix
-        const subscriptionsRef = collection(db, "subscriptions");
+        // Check for active subscription
+        const subscriptionsRef = collection(db, 'subscriptions');
         const q = query(
           subscriptionsRef,
-          where("userId", "==", user.uid),
-          where("status", "in", ["active", "trialing"]),
-          where("subscriptionId", ">=", "sub_"),
-          where("subscriptionId", "<=", "sub_\uf8ff")
+          where('userId', '==', user.uid),
+          where('status', '==', 'active')
         );
+
+        const querySnapshot = await getDocs(q);
         
-        await getDocs(q);
-        setLoading(false);
+        if (querySnapshot.empty) {
+          // No active subscription found
+          setHasAccess(false);
+          toast.error('Please subscribe to access this feature', {
+            duration: 5000,
+            position: 'top-center',
+          });
+          router.push('/pricing');
+          return;
+        }
+
+        // Check subscription expiry
+        const subscription = querySnapshot.docs[0].data();
+        const now = new Date();
+        const expiryDate = subscription.expiryDate?.toDate();
+
+        if (expiryDate && expiryDate < now) {
+          setHasAccess(false);
+          toast.error('Your subscription has expired', {
+            duration: 5000,
+            position: 'top-center',
+          });
+          router.push('/pricing');
+          return;
+        }
+
+        // All checks passed
+        setHasAccess(true);
       } catch (error) {
-        console.error("Error checking subscription:", error);
-        // Don't block the user on subscription check errors
+        console.error('Error checking subscription:', error);
+        toast.error('Error verifying subscription status');
+        setHasAccess(false);
+      } finally {
         setLoading(false);
       }
     };
 
-    checkAccess();
-  }, [user]);
+    checkSubscription();
+  }, [user, router]);
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-[calc(100vh-4rem)]">
-        <div className="animate-spin rounded-full h-6 w-6 sm:h-8 sm:w-8 border-b-2 border-orange-500"></div>
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-orange-500"></div>
       </div>
     );
   }
 
-  if (!user) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-[calc(100vh-4rem)] p-4">
-        <div className="text-center space-y-4 max-w-md mx-auto px-4 sm:px-6">
-          <h2 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">
-            Login Required
-          </h2>
-          <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400">
-            Please log in or sign up to access this feature.
-          </p>
-          <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center">
-            <button
-              onClick={() => router.push('/login')}
-              className="w-full sm:w-auto px-4 py-2 bg-orange-500 text-white rounded hover:bg-orange-600 transition-colors text-sm sm:text-base"
-            >
-              Login
-            </button>
-            <button
-              onClick={() => router.push('/signup')}
-              className="w-full sm:w-auto px-4 py-2 bg-gray-200 text-gray-800 rounded hover:bg-gray-300 transition-colors text-sm sm:text-base"
-            >
-              Sign Up
-            </button>
-          </div>
-        </div>
-      </div>
-    );
+  if (!hasAccess) {
+    return null;
   }
 
   return children;

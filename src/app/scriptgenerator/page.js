@@ -26,7 +26,7 @@ export default function ScriptGenerator() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [scriptHistory, setScriptHistory] = useState([]); // State for script history
   const [isGeneratingAudio, setIsGeneratingAudio] = useState(false);
-  const [audioUrls, setAudioUrls] = useState([]);
+  const [audioUrls, setAudioUrls] = useState({});
   const [isPlaying, setIsPlaying] = useState({});
   const audioRefs = useRef({});
   const [generatingAudioForScript, setGeneratingAudioForScript] = useState({});
@@ -261,54 +261,69 @@ export default function ScriptGenerator() {
     element.click();
   };
 
-  const generateAudio = async (scriptText, scriptId) => {
-    if (!scriptText) {
-      toast.error("Please generate a script first");
-      return;
-    }
-
+  // Function to generate audio for a script
+  const generateAudio = async (scriptId, text) => {
+    if (!user || !text) return;
+    
+    setGeneratingAudioForScript(prev => ({ ...prev, [scriptId]: true }));
+    setIsGeneratingAudio(true);
+    
     try {
-      setGeneratingAudioForScript(prev => ({ ...prev, [scriptId]: true }));
-      
       const response = await fetch('/api/generate-audio', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ 
-          text: scriptText,
-          voiceId: selectedVoice 
+        body: JSON.stringify({
+          text,
+          voiceId: selectedVoice
         }),
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to generate audio.');
+        throw new Error('Failed to generate audio');
       }
 
       const data = await response.json();
       
-      // Update the script document with audio information
-      if (scriptId) {
-        const scriptRef = doc(db, "scripts", scriptId);
-        await updateDoc(scriptRef, {
-          audioUrl: data.url,
-          audioFilename: data.filename,
-          voiceId: selectedVoice,
-          updatedAt: Timestamp.now()
-        });
-
-        // Refresh script history to show new audio
-        fetchScriptHistory();
+      if (!data.audioUrl) {
+        throw new Error('No audio URL received');
       }
 
+      // Create a unique filename for the audio
+      const audioFilename = `audio_${Date.now()}_${scriptId}.mp3`;
+
+      // Update Firestore document with audio URL and filename
+      const scriptRef = doc(db, 'scripts', scriptId);
+      await updateDoc(scriptRef, {
+        audioUrl: data.audioUrl,
+        audioFilename: audioFilename,
+        voiceId: selectedVoice,
+        hasAudio: true,
+        updatedAt: Timestamp.now()
+      });
+
+      // Update local state
+      setScriptHistory(prev => prev.map(script => 
+        script.id === scriptId 
+          ? { 
+              ...script, 
+              audioUrl: data.audioUrl, 
+              audioFilename, 
+              voiceId: selectedVoice,
+              hasAudio: true 
+            }
+          : script
+      ));
+
       toast.success('Audio generated successfully!');
-      return data;
+      
     } catch (error) {
       console.error('Error generating audio:', error);
-      toast.error(error.message || 'Failed to generate audio');
+      toast.error('Failed to generate audio');
     } finally {
       setGeneratingAudioForScript(prev => ({ ...prev, [scriptId]: false }));
+      setIsGeneratingAudio(false);
     }
   };
 
@@ -318,33 +333,58 @@ export default function ScriptGenerator() {
   }, [fetchScriptHistory]);
 
   // Add these helper functions for audio playback
-  const togglePlay = (audioId) => {
-    const audio = audioRefs.current[audioId];
-    if (!audio) return;
+  const togglePlay = async (scriptId) => {
+    try {
+      const script = scriptHistory.find(s => s.id === scriptId);
+      if (!script?.audioUrl) return;
 
-    if (isPlaying[audioId]) {
-      audio.pause();
-    } else {
-      // Pause any currently playing audio
-      Object.keys(audioRefs.current).forEach(key => {
-        if (key !== audioId && audioRefs.current[key]) {
-          audioRefs.current[key].pause();
-          setIsPlaying(prev => ({ ...prev, [key]: false }));
+      // Initialize audio element if it doesn't exist
+      if (!audioRefs.current[scriptId]) {
+        audioRefs.current[scriptId] = new Audio(script.audioUrl);
+        audioRefs.current[scriptId].onended = () => handleAudioEnd(scriptId);
+      }
+
+      const audio = audioRefs.current[scriptId];
+
+      if (isPlaying[scriptId]) {
+        await audio.pause();
+      } else {
+        // Pause any currently playing audio
+        for (const [key, audioElement] of Object.entries(audioRefs.current)) {
+          if (key !== scriptId && audioElement) {
+            await audioElement.pause();
+            setIsPlaying(prev => ({ ...prev, [key]: false }));
+          }
         }
-      });
-      audio.play();
+        
+        try {
+          await audio.play();
+        } catch (error) {
+          console.error('Error playing audio:', error);
+          toast.error('Failed to play audio');
+          return;
+        }
+      }
+
+      setIsPlaying(prev => ({
+        ...prev,
+        [scriptId]: !prev[scriptId]
+      }));
+    } catch (error) {
+      console.error('Error in togglePlay:', error);
+      toast.error('Failed to play audio');
     }
-    setIsPlaying(prev => ({
-      ...prev,
-      [audioId]: !prev[audioId]
-    }));
   };
 
-  const handleAudioEnd = (audioId) => {
+  const handleAudioEnd = (scriptId) => {
     setIsPlaying(prev => ({
       ...prev,
-      [audioId]: false
+      [scriptId]: false
     }));
+    
+    if (audioRefs.current[scriptId]) {
+      audioRefs.current[scriptId].currentTime = 0;
+    }
   };
 
   // Replace the existing downloadAudio function with this updated version
@@ -405,7 +445,7 @@ export default function ScriptGenerator() {
   };
 
   const hasAudio = (script) => {
-    return script.audioUrl && script.audioFilename;
+    return Boolean(script.audioUrl && script.hasAudio);
   };
 
   // Add this function to properly format dates
@@ -621,24 +661,24 @@ export default function ScriptGenerator() {
             </p>
             <div className="flex space-x-2">
               {hasAudio(script) ? (
-                <>
+                <div className="flex space-x-2">
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => togglePlay(script.audioFilename)}
+                    onClick={() => togglePlay(script.id)}
                     className="flex items-center"
                   >
-                    {isPlaying[script.audioFilename] ? (
-                      <Pause className="w-4 h-4" />
+                    {isPlaying[script.id] ? (
+                      <>
+                        <Pause className="w-4 h-4 mr-2" />
+                        Pause
+                      </>
                     ) : (
-                      <Play className="w-4 h-4" />
+                      <>
+                        <Play className="w-4 h-4 mr-2" />
+                        Play
+                      </>
                     )}
-                    <audio
-                      ref={el => audioRefs.current[script.audioFilename] = el}
-                      src={script.audioUrl}
-                      onEnded={() => handleAudioEnd(script.audioFilename)}
-                      className="hidden"
-                    />
                   </Button>
                   <Button
                     variant="outline"
@@ -647,13 +687,14 @@ export default function ScriptGenerator() {
                     className="flex items-center"
                   >
                     <Download className="w-4 h-4 mr-2" />
+                    Download
                   </Button>
-                </>
+                </div>
               ) : (
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => generateAudio(script.script, script.id)}
+                  onClick={() => generateAudio(script.id, script.script)}
                   disabled={generatingAudioForScript[script.id]}
                   className="flex items-center"
                 >
@@ -848,7 +889,7 @@ export default function ScriptGenerator() {
                           Download
                         </Button>
                         <Button
-                          onClick={() => generateAudio(generatedScript, scriptHistory[0]?.id)}
+                          onClick={() => generateAudio(scriptHistory[0]?.id, generatedScript)}
                           disabled={isGeneratingAudio}
                           className="w-full sm:w-auto text-sm sm:text-base"
                           variant="outline"
@@ -896,12 +937,12 @@ export default function ScriptGenerator() {
                                 Copy
                               </Button>
                               {hasAudio(script) ? (
-                                <>
+                                <div className="flex space-x-2">
                                   <Button
-                                    onClick={() => togglePlay(script.id)}
-                                    size="sm"
                                     variant="outline"
-                                    className="text-xs sm:text-sm"
+                                    size="sm"
+                                    onClick={() => togglePlay(script.id)}
+                                    className="flex items-center"
                                   >
                                     {isPlaying[script.id] ? (
                                       <>
@@ -915,12 +956,6 @@ export default function ScriptGenerator() {
                                       </>
                                     )}
                                   </Button>
-                                  <audio
-                                    ref={el => audioRefs.current[script.id] = el}
-                                    src={script.audioUrl}
-                                    onEnded={() => handleAudioEnd(script.id)}
-                                    className="hidden"
-                                  />
                                   <Button
                                     onClick={() => downloadAudio(script.audioUrl, script.audioFilename)}
                                     size="sm"
@@ -930,10 +965,10 @@ export default function ScriptGenerator() {
                                     <Download className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
                                     Audio
                                   </Button>
-                                </>
+                                </div>
                               ) : (
                                 <Button
-                                  onClick={() => generateAudio(script.script, script.id)}
+                                  onClick={() => generateAudio(script.id, script.script)}
                                   size="sm"
                                   variant="outline"
                                   className="text-xs sm:text-sm"
