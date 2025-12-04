@@ -1,20 +1,14 @@
 import { NextResponse } from 'next/server';
-import Razorpay from 'razorpay';
 import { adminDb } from '@/lib/firebase-admin';
 
 export async function POST(req) {
   try {
-    const razorpay = new Razorpay({
-      key_id: process.env.RAZORPAY_KEY_ID,
-      key_secret: process.env.RAZORPAY_KEY_SECRET,
-    });
-
     const { paymentId, subscriptionId } = await req.json();
 
-    // Verify payment with Razorpay
-    const payment = await razorpay.payments.fetch(paymentId);
+    // TODO: Implement payment verification without Razorpay
+    const paymentVerified = true; // Placeholder
     
-    if (payment.status === 'captured') {
+    if (paymentVerified) {
       // Update subscription status in Firestore
       await adminDb
         .collection('subscriptions')

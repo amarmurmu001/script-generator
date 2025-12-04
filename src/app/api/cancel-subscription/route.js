@@ -1,14 +1,8 @@
 import { NextResponse } from 'next/server';
-import Razorpay from 'razorpay';
 import { adminDb } from '@/lib/firebase-admin';
 
 export async function POST(req) {
   try {
-    const razorpay = new Razorpay({
-      key_id: process.env.RAZORPAY_KEY_ID,
-      key_secret: process.env.RAZORPAY_KEY_SECRET,
-    });
-
     const { subscriptionId, userId } = await req.json();
 
     if (!subscriptionId || !userId) {
@@ -21,18 +15,7 @@ export async function POST(req) {
       throw new Error('Subscription not found');
     }
 
-    const subscriptionData = subscriptionDoc.data();
-    const razorpaySubId = subscriptionData.razorpaySubscriptionId;
-
-    if (razorpaySubId) {
-      try {
-        // Cancel subscription with Razorpay
-        await razorpay.subscriptions.cancel(razorpaySubId);
-      } catch (razorpayError) {
-        console.error('Razorpay cancellation error:', razorpayError);
-        // Continue with Firestore update even if Razorpay fails
-      }
-    }
+    // TODO: Implement subscription cancellation without Razorpay
 
     // Update subscription status in Firestore
     const batch = adminDb.batch();
