@@ -11,26 +11,13 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
-import { BrainCircuit, Menu, X, Moon, Sun, User, LogOut, CreditCard, Zap } from "lucide-react";
+import { BrainCircuit, Menu, X, Moon, Sun, User, LogOut } from "lucide-react";
 import { motion } from "framer-motion";
-import { useSubscription } from '@/lib/subscription-context';
 
 export default function Navbar() {
   const { user, logout } = useAuth();
-  const { subscription, limits, updateSubscriptionData } = useSubscription();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(false);
-
-  useEffect(() => {
-    if (user) {
-      updateSubscriptionData(user.uid);
-    }
-  }, [user, updateSubscriptionData]);
-
-  // Use subscription and limits from context instead of local state
-  const remainingScripts = limits?.remaining || 0;
-  const totalScripts = limits?.total || 0;
-  const planName = subscription?.planName || 'Free';
 
   // Handle dark mode
   useEffect(() => {
@@ -77,7 +64,7 @@ export default function Navbar() {
           </div>
 
           <nav className="hidden md:flex gap-4 lg:gap-6 flex-grow justify-center">
-            {["Features", "Pricing", "FAQ"].map((item) => (
+            {["Features", "FAQ"].map((item) => (
               <Link 
                 key={item} 
                 className="text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors relative group py-2 px-1" 
@@ -98,36 +85,6 @@ export default function Navbar() {
             >
               {isDarkMode ? <Sun className="h-4 w-4 sm:h-5 sm:w-5" /> : <Moon className="h-4 w-4 sm:h-5 sm:w-5" />}
             </Button>
-
-            {user && (
-              <div className="hidden sm:flex items-center mr-4">
-                <div className="flex items-center space-x-2 bg-gray-100 dark:bg-gray-800 rounded-full px-3 py-1">
-                  <Zap className="h-4 w-4 text-orange-500" />
-                  <span className="text-sm font-medium text-gray-900 dark:text-white">
-                    {planName} Plan
-                  </span>
-                  {remainingScripts > 0 && (
-                    <>
-                      <div className="h-4 w-[1px] bg-gray-300 dark:bg-gray-600" />
-                      <span className="text-sm font-medium text-gray-900 dark:text-white">
-                        {remainingScripts}/{totalScripts} {limits?.limitType === 'daily' ? 'today' : 'total'}
-                      </span>
-                    </>
-                  )}
-                </div>
-                {planName === 'Free' && (
-                  <Link href="/pricing">
-                    <Button 
-                      variant="ghost"
-                      size="sm"
-                      className="ml-2 text-orange-500 hover:text-orange-600"
-                    >
-                      Upgrade
-                    </Button>
-                  </Link>
-                )}
-              </div>
-            )}
 
             {user ? (
               <div className="flex items-center gap-2 sm:gap-4">
@@ -176,12 +133,6 @@ export default function Navbar() {
                         <span className="text-sm">Profile</span>
                       </Link>
                     </DropdownMenuItem>
-                    <DropdownMenuItem asChild>
-                      <Link href="/subscription" className="flex items-center cursor-pointer">
-                        <CreditCard className="mr-2 h-4 w-4" />
-                        <span className="text-sm">Subscription</span>
-                      </Link>
-                    </DropdownMenuItem>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem onClick={logout} className="cursor-pointer">
                       <LogOut className="mr-2 h-4 w-4" />
@@ -226,27 +177,8 @@ export default function Navbar() {
           transition={{ duration: 0.2, ease: "easeInOut" }}
           className="md:hidden fixed inset-x-0 top-[3.5rem] sm:top-16 z-40 overflow-hidden bg-white dark:bg-[#121212] border-b border-gray-200 dark:border-gray-800 shadow-lg"
         >
-          {user && (
-            <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-2">
-                  <Zap className="h-4 w-4 text-orange-500" />
-                  <span className="text-sm font-medium text-gray-900 dark:text-white">
-                    {planName} Plan
-                  </span>
-                </div>
-                {remainingScripts > 0 && (
-                  <div className="flex items-center bg-gray-100 dark:bg-gray-800 rounded-full px-2 py-1">
-                    <span className="text-xs font-medium text-gray-900 dark:text-white">
-                      {remainingScripts}/{totalScripts} {limits?.limitType === 'daily' ? 'today' : 'total'}
-                    </span>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
           <nav className="flex flex-col py-4">
-            {["Features", "Pricing", "FAQ"].map((item) => (
+            {["Features", "FAQ"].map((item) => (
               <Link 
                 key={item} 
                 className="py-3 px-6 text-base font-medium text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors active:bg-gray-100 dark:active:bg-gray-700" 

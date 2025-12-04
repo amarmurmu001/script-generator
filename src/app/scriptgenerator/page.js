@@ -11,13 +11,9 @@ import { ref, getDownloadURL } from "firebase/storage";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import AuthCheck from '@/components/auth-check';
 import { useAuth } from '@/lib/auth-context';
-import SubscriptionCheck from '@/components/subscription-check';
-import { checkScriptGenerationLimit, updateScriptLimit } from '@/lib/script-limits';
-import { getUserSubscription } from '@/lib/subscription';
 import { toast } from 'react-hot-toast';
 import { useRouter } from 'next/navigation';
 import debounce from 'lodash/debounce';
-import { useSubscription } from '@/lib/subscription-context';
 
 export default function ScriptGenerator() {
   const [input, setInput] = useState("");
@@ -38,7 +34,6 @@ export default function ScriptGenerator() {
   const [activeSubscription, setActiveSubscription] = useState(null);
   const router = useRouter();
   const { user } = useAuth();
-  const { updateSubscriptionData } = useSubscription();
 
   // Function to fetch script history - moved to top
   const fetchScriptHistory = useCallback(async () => {
@@ -76,60 +71,7 @@ export default function ScriptGenerator() {
     { id: "pFZP5JQG7iQjIQuC4Bku", name: "Lily", description: "Warm British female" },
   ], []);
 
-  // Add this new useEffect to monitor generationLimit changes
-  useEffect(() => {
-    console.log('Generation limit state updated:', generationLimit);
-  }, [generationLimit]);
 
-  // Restore subscription and limits effect
-  useEffect(() => {
-    const fetchSubscriptionAndLimits = async () => {
-      if (!user) return;
-
-      try {
-        // Add a small delay to ensure auth is fully initialized
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        
-        // Get user's active subscription with forced refresh
-        const subscription = await getUserSubscription(user.uid, true);
-        console.log('Debug - Fetched Subscription:', subscription);
-        
-        // Always ensure we have valid plan details
-        if (!subscription.planDetails || subscription.planDetails.name !== subscription.planName) {
-          subscription.planDetails = PLAN_DETAILS[subscription.planName || 'Free'];
-        }
-        
-        setActiveSubscription(subscription);
-
-        // Check generation limits with the corrected subscription
-        const limits = await checkScriptGenerationLimit(user.uid);
-        console.log('Debug - Generation limits:', limits);
-        
-        setGenerationLimit(limits);
-      } catch (error) {
-        console.error('Error fetching subscription data:', error);
-        // Set default free plan on error
-        const defaultSubscription = {
-          userId: user.uid,
-          planName: 'Free',
-          planDetails: PLAN_DETAILS['Free'],
-          status: 'active'
-        };
-        setActiveSubscription(defaultSubscription);
-        setGenerationLimit({
-          total: 5,
-          used: 0,
-          remaining: 5,
-          limitType: 'total'
-        });
-        toast.error('Error loading subscription. Using free plan limits.');
-      }
-    };
-
-    if (user) {
-      fetchSubscriptionAndLimits();
-    }
-  }, [user]);
 
   const generateScript = useCallback(async () => {
     if (!user) return;
@@ -142,13 +84,6 @@ export default function ScriptGenerator() {
     setError('');
     
     try {
-      const limits = await checkScriptGenerationLimit(user.uid);
-      if (limits.remaining === 0) {
-        toast.error(limits.limitType === 'total' 
-          ? `You've reached your total limit of ${limits.total} scripts.`
-          : `You've reached your daily limit of ${limits.total} scripts.`);
-        return;
-      }
 
       // Add timestamp to the script data
       const scriptData = {
@@ -184,12 +119,6 @@ export default function ScriptGenerator() {
 
       setGeneratedScript(data.script);
       
-      // Update script limit in Firestore
-      await updateScriptLimit(user.uid);
-      
-      // Update subscription data in context
-      await updateSubscriptionData(user.uid);
-
       // Refresh script history
       fetchScriptHistory();
       
@@ -201,7 +130,7 @@ export default function ScriptGenerator() {
     } finally {
       setIsGenerating(false);
     }
-  }, [user, input, fetchScriptHistory, updateSubscriptionData]);
+  }, [user, input, fetchScriptHistory]);
 
   // Function to format the script
   const formatScript = (script) => {
@@ -767,54 +696,11 @@ export default function ScriptGenerator() {
   // Add loading state for initial data fetch
   const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    const fetchInitialData = async () => {
-      if (!user) return;
-      
-      try {
-        setIsLoading(true);
-        
-        // Fetch subscription and limits in parallel
-        const [subscription, limits] = await Promise.all([
-          getUserSubscription(user.uid, true),
-          checkScriptGenerationLimit(user.uid)
-        ]);
-        
-        setActiveSubscription(subscription);
-        setGenerationLimit(limits);
-        
-        // Fetch script history
-        const scriptsRef = collection(db, 'scripts');
-        const q = query(
-          scriptsRef,
-          where('userId', '==', user.uid),
-          orderBy('createdAt', 'desc'),
-          limit(itemsPerPage)
-        );
-        
-        const querySnapshot = await getDocs(q);
-        const scripts = querySnapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
-        }));
-        
-        setScriptHistory(scripts);
-        
-      } catch (error) {
-        console.error('Error fetching initial data:', error);
-        toast.error('Failed to load data');
-      } finally {
-        setIsLoading(false);
-      }
-    };
 
-    fetchInitialData();
-  }, [user]);
 
   return (
     <AuthCheck>
-      <SubscriptionCheck>
-        <div className="min-h-screen bg-gray-50 dark:bg-[#121212] p-4 sm:p-6">
+      <div className="min-h-screen bg-gray-50 dark:bg-[#121212] p-4 sm:p-6">
           <div className="max-w-7xl mx-auto">
             <div className="container mx-auto px-4">
               <div className="max-w-4xl mx-auto">
@@ -1002,7 +888,7 @@ export default function ScriptGenerator() {
             </div>
           </div>
         </div>
-      </SubscriptionCheck>
-    </AuthCheck>
-  );
-}
+      </AuthCheck>
+    );
+  }
+

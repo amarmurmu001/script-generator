@@ -9,7 +9,6 @@ import { motion } from "framer-motion"
 import { cn } from "@/lib/utils"
 import { useAuth } from '@/lib/auth-context'
 import { useRouter } from 'next/navigation'
-import { toast } from 'react-hot-toast'
 
 export default function LandingPage() {
   const [email, setEmail] = useState("")
@@ -65,119 +64,8 @@ export default function LandingPage() {
     {
       question: "What about the audio feature?",
       answer: "ScriptGenius includes a text-to-speech feature with multiple voice options. You can convert any script to audio, making it perfect for voice-overs in your YouTube Shorts."
-    },
-    {
-      question: "Is there a limit to how many scripts I can generate?",
-      answer: "During the 14-day free trial, you can generate up to 50 scripts. After that, our pricing plans are designed to accommodate different content creation needs."
     }
   ]
-
-  const plans = [
-    { 
-      id: 'plan_starter',
-      razorpayPlanId: process.env.NEXT_PUBLIC_RAZORPAY_PLAN_STARTER_ID,
-      title: "Starter", 
-      price: "₹499",
-      description: "Perfect for individuals getting started",
-      features: [
-        "50 scripts per month",
-        "5 themes",
-        "Basic support",
-        "24/7 email support",
-        "Access to basic templates"
-      ],
-      accent: "bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-900/10"
-    },
-    { 
-      id: 'plan_pro',
-      razorpayPlanId: process.env.NEXT_PUBLIC_RAZORPAY_PLAN_PRO_ID,
-      title: "Pro", 
-      price: "₹1999",
-      description: "Best for professionals and growing teams",
-      features: [
-        "Unlimited scripts",
-        "All themes",
-        "Priority support",
-        "Custom themes",
-        "Advanced analytics",
-        "Custom branding",
-        "API access"
-      ],
-      popular: true,
-      accent: "bg-gradient-to-br from-orange-50 to-orange-100 dark:from-orange-900/20 dark:to-orange-900/10"
-    },
-    { 
-      id: 'plan_enterprise',
-      title: "Enterprise", 
-      price: "Custom",
-      description: "Custom solutions for large organizations",
-      features: [
-        "Unlimited everything",
-        "Dedicated account manager",
-        "24/7 phone support",
-        "Custom integrations",
-        "SLA guarantees",
-        "Custom features",
-        "Onboarding assistance"
-      ],
-      accent: "bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900/20 dark:to-purple-900/10"
-    }
-  ];
-
-  const handleSubscribe = async (plan) => {
-    if (!user) {
-      router.push('/login');
-      return;
-    }
-
-    if (plan.id === 'plan_enterprise') {
-      router.push('/contact');
-      return;
-    }
-
-    try {
-      const response = await fetch('/api/create-subscription', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          planId: plan.razorpayPlanId,
-          userId: user.uid,
-        }),
-      });
-
-      const data = await response.json();
-      
-      if (data.error) {
-        throw new Error(data.error);
-      }
-
-      if (!data.shortUrl) {
-        throw new Error('No checkout URL received');
-      }
-
-      // Store the return URL in localStorage before redirecting
-      localStorage.setItem('subscription_return_url', '/subscription');
-
-      // Redirect to Razorpay checkout page
-      window.location.href = data.shortUrl;
-    } catch (error) {
-      console.error('Subscription error:', error);
-      toast.error(error.message || 'Failed to create subscription', {
-        style: {
-          border: '1px solid #f87171',
-          padding: '16px',
-          color: '#ef4444',
-          backgroundColor: isDarkMode ? '#1f2937' : '#fff',
-        },
-        iconTheme: {
-          primary: '#ef4444',
-          secondary: '#fff',
-        },
-      });
-    }
-  };
 
   return (
     <div className="flex flex-col min-h-screen bg-background">
@@ -356,86 +244,7 @@ export default function LandingPage() {
             </div>
           </div>
         </section>
-        <section id="pricing" className="py-24 bg-gray-50 dark:bg-[#121212]">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="text-center max-w-3xl mx-auto mb-16">
-              <h2 className="text-4xl font-bold text-gray-900 dark:text-white mb-4">
-                Simple, transparent pricing
-              </h2>
-              <p className="text-lg text-gray-600 dark:text-gray-400">
-                Choose the perfect plan for your needs. All plans include a 14-day free trial.
-              </p>
-            </div>
 
-            <div className="grid lg:grid-cols-3 gap-8 max-w-7xl mx-auto">
-              {plans.map((plan) => (
-                <div
-                  key={plan.id}
-                  className={`relative rounded-2xl overflow-hidden transition-transform duration-300 hover:scale-[1.02] ${
-                    plan.popular ? 'ring-2 ring-orange-500 dark:ring-orange-400' : ''
-                  }`}
-                >
-                  {plan.popular && (
-                    <div className="absolute top-0 left-0 right-0 flex justify-center">
-                      <span className="bg-gradient-to-r from-orange-500 to-orange-600 text-white px-4 py-1 rounded-b-lg text-sm font-medium shadow-lg">
-                        Most Popular
-                      </span>
-                    </div>
-                  )}
-                  <div className={`p-8 ${plan.accent} h-full flex flex-col ${plan.popular ? 'pt-12' : ''}`}>
-                    <div className="mb-6">
-                      <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
-                        {plan.title}
-                      </h3>
-                      <p className="text-sm text-gray-600 dark:text-gray-400">
-                        {plan.description}
-                      </p>
-                    </div>
-
-                    <div className="mb-6">
-                      <p className="text-4xl font-bold text-gray-900 dark:text-white">
-                        {plan.price}
-                        {plan.price !== "Custom" && (
-                          <span className="text-lg font-normal text-gray-600 dark:text-gray-400">
-                            /month
-                          </span>
-                        )}
-                      </p>
-                    </div>
-
-                    <ul className="space-y-4 mb-8 flex-grow">
-                      {plan.features.map((feature, index) => (
-                        <li key={index} className="flex items-start">
-                          <div className="rounded-full p-1 bg-orange-100 dark:bg-orange-900/20 mr-3 flex-shrink-0">
-                            <Check className="h-4 w-4 text-orange-500 dark:text-orange-400" />
-                          </div>
-                          <span className="text-gray-700 dark:text-gray-300">{feature}</span>
-                        </li>
-                      ))}
-                    </ul>
-
-                    <Button
-                      onClick={() => handleSubscribe(plan)}
-                      className={`w-full ${
-                        plan.popular
-                          ? 'bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white shadow-lg'
-                          : 'bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-900 dark:text-white border border-gray-200 dark:border-gray-700'
-                      }`}
-                      disabled={!user}
-                    >
-                      {plan.id === 'plan_enterprise' ? 'Contact Sales' : 'Get Started'}
-                    </Button>
-                    {!user && (
-                      <p className="text-xs text-center mt-2 text-gray-500 dark:text-gray-400">
-                        Please login to subscribe
-                      </p>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </section>
         <section id="faq" className="w-full py-12 md:py-24 lg:py-32 bg-gray-50 dark:bg-[#121212]">
           <div className="container mx-auto">
             <h2 className="text-3xl font-bold tracking-tighter sm:text-5xl text-center mb-12">

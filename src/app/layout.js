@@ -2,7 +2,6 @@ import Navbar from "@/components/Navbar"
 import localFont from "next/font/local";
 import "./globals.css";
 import { AuthProvider } from '@/lib/auth-context';
-import { SubscriptionProvider } from '@/lib/subscription-context';
 import { Toaster } from "react-hot-toast";
 
 const geistSans = localFont({
@@ -26,11 +25,9 @@ export default function RootLayout({ children }) {
     <html lang="en" suppressHydrationWarning>
       <body className="min-h-screen bg-background font-sans antialiased" suppressHydrationWarning>
         <AuthProvider>
-          <SubscriptionProvider>
-            <Navbar />
-            {children}
-            <Toaster />
-          </SubscriptionProvider>
+          <Navbar />
+          {children}
+          <Toaster />
         </AuthProvider>
       </body>
     </html>
