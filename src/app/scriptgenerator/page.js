@@ -4,29 +4,22 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Copy, Download, Volume2, Play, Pause, Edit, RefreshCw, Trash2, Zap } from "lucide-react";
-import { db, storage } from "@/lib/firebase"; // Import your Firebase configuration
-import { collection, addDoc, getDocs, doc, updateDoc, deleteDoc, query, where, Timestamp, orderBy, limit } from "firebase/firestore"; // Import Firestore functions
-import { ref, getDownloadURL } from "firebase/storage";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Copy, Download, Edit, RefreshCw, Trash2, Zap } from "lucide-react";
+import { collection, addDoc, getDocs, doc, updateDoc, deleteDoc, query, where, Timestamp, orderBy, limit } from "firebase/firestore";
+
 import AuthCheck from '@/components/auth-check';
 import { useAuth } from '@/lib/auth-context';
 import { toast } from 'react-hot-toast';
 import { useRouter } from 'next/navigation';
 import debounce from 'lodash/debounce';
+import { db } from "@/lib/firebase"; // Ensure db is imported if not already
 
 export default function ScriptGenerator() {
   const [input, setInput] = useState("");
   const [generatedScript, setGeneratedScript] = useState("");
   const [error, setError] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
-  const [scriptHistory, setScriptHistory] = useState([]); // State for script history
-  const [isGeneratingAudio, setIsGeneratingAudio] = useState(false);
-  const [audioUrls, setAudioUrls] = useState({});
-  const [isPlaying, setIsPlaying] = useState({});
-  const audioRefs = useRef({});
-  const [generatingAudioForScript, setGeneratingAudioForScript] = useState({});
-  const [selectedVoice, setSelectedVoice] = useState("9BWtsMINqrJLrRacOk9x");
+  const [scriptHistory, setScriptHistory] = useState([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(5);
   const [totalPages, setTotalPages] = useState(1);
@@ -35,25 +28,24 @@ export default function ScriptGenerator() {
   const router = useRouter();
   const { user } = useAuth();
 
-  // Function to fetch script history - moved to top
   const fetchScriptHistory = useCallback(async () => {
     if (!user) return;
-    
+
     try {
       const scriptsRef = collection(db, "scripts");
       const q = query(
-        scriptsRef, 
+        scriptsRef,
         where("userId", "==", user.uid),
         orderBy("createdAt", "desc"),
         limit(10)
       );
-      
+
       const querySnapshot = await getDocs(q);
       const scripts = querySnapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
       }));
-      
+
       setScriptHistory(scripts);
     } catch (error) {
       console.error("Error fetching scripts:", error);
@@ -61,31 +53,17 @@ export default function ScriptGenerator() {
     }
   }, [user]);
 
-  const voices = useMemo(() => [
-    { id: "9BWtsMINqrJLrRacOk9x", name: "Default Voice", description: "Expressive American female" },
-    { id: "CwhRBWXzGAHq8TQ4Fs17", name: "Roger", description: "Confident American male" },
-    { id: "EXAVITQu4vr4xnSDxMaL", name: "Sarah", description: "Soft American female" },
-    { id: "FGY2WhTYpPnrIDTdsKH5", name: "Laura", description: "Upbeat American female" },
-    { id: "TX3LPaxmHKxFdv7VOQHJ", name: "Liam", description: "Articulate American male" },
-    { id: "bIHbv24MWmeRgasZH58o", name: "Will", description: "Friendly American male" },
-    { id: "pFZP5JQG7iQjIQuC4Bku", name: "Lily", description: "Warm British female" },
-  ], []);
-
-
-
   const generateScript = useCallback(async () => {
     if (!user) return;
     if (!input || !input.trim()) {
       toast.error('Please enter a prompt first');
       return;
     }
-    
+
     setIsGenerating(true);
     setError('');
-    
-    try {
 
-      // Add timestamp to the script data
+    try {
       const scriptData = {
         userId: user.uid,
         input: input.trim(),
@@ -110,7 +88,7 @@ export default function ScriptGenerator() {
       }
 
       const data = await response.json();
-      
+
       await updateDoc(doc(db, 'scripts', docRef.id), {
         script: data.script,
         updatedAt: Timestamp.now(),
@@ -118,12 +96,9 @@ export default function ScriptGenerator() {
       });
 
       setGeneratedScript(data.script);
-      
-      // Refresh script history
       fetchScriptHistory();
-      
       toast.success('Script generated successfully!');
-      
+
     } catch (error) {
       console.error('Error generating script:', error);
       toast.error('Failed to generate script');
@@ -132,10 +107,9 @@ export default function ScriptGenerator() {
     }
   }, [user, input, fetchScriptHistory]);
 
-  // Function to format the script
   const formatScript = (script) => {
     if (!script) return null;
-    
+
     const lines = script.split('\n');
     return (
       <div className="space-y-2">
@@ -146,7 +120,7 @@ export default function ScriptGenerator() {
             return <p key={index} className="ml-4 text-gray-700">{line}</p>;
           } else if (line.startsWith('CTA:')) {
             return <p key={index} className="font-semibold text-gray-800 mt-2">{line}</p>;
-          } else if (line.trim()) { // Handle any other non-empty lines
+          } else if (line.trim()) {
             return <p key={index} className="text-gray-700">{line}</p>;
           }
           return null;
@@ -155,18 +129,16 @@ export default function ScriptGenerator() {
     );
   };
 
-  // Function to copy the script to clipboard
   const copyScript = (script) => {
     navigator.clipboard.writeText(script)
       .then(() => alert('Script copied to clipboard!'))
       .catch(err => console.error('Failed to copy script: ', err));
   };
 
-  // Fetch scripts from Firestore
   useEffect(() => {
     const fetchScripts = async () => {
       if (!user) return;
-      
+
       try {
         const scriptsRef = collection(db, "scripts");
         const q = query(scriptsRef, where("userId", "==", user.uid));
@@ -183,216 +155,23 @@ export default function ScriptGenerator() {
 
   const downloadScript = () => {
     const element = document.createElement("a");
-    const file = new Blob([generatedScript], {type: 'text/plain'});
+    const file = new Blob([generatedScript], { type: 'text/plain' });
     element.href = URL.createObjectURL(file);
     element.download = "generated_script.txt";
     document.body.appendChild(element);
     element.click();
   };
 
-  // Function to generate audio for a script
-  const generateAudio = async (scriptId, text) => {
-    if (!user || !text) return;
-    
-    setGeneratingAudioForScript(prev => ({ ...prev, [scriptId]: true }));
-    setIsGeneratingAudio(true);
-    
-    try {
-      const response = await fetch('/api/generate-audio', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          text,
-          voiceId: selectedVoice
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to generate audio');
-      }
-
-      const data = await response.json();
-      
-      if (!data.audioUrl) {
-        throw new Error('No audio URL received');
-      }
-
-      // Create a unique filename for the audio
-      const audioFilename = `audio_${Date.now()}_${scriptId}.mp3`;
-
-      // Update Firestore document with audio URL and filename
-      const scriptRef = doc(db, 'scripts', scriptId);
-      await updateDoc(scriptRef, {
-        audioUrl: data.audioUrl,
-        audioFilename: audioFilename,
-        voiceId: selectedVoice,
-        hasAudio: true,
-        updatedAt: Timestamp.now()
-      });
-
-      // Update local state
-      setScriptHistory(prev => prev.map(script => 
-        script.id === scriptId 
-          ? { 
-              ...script, 
-              audioUrl: data.audioUrl, 
-              audioFilename, 
-              voiceId: selectedVoice,
-              hasAudio: true 
-            }
-          : script
-      ));
-
-      toast.success('Audio generated successfully!');
-      
-    } catch (error) {
-      console.error('Error generating audio:', error);
-      toast.error('Failed to generate audio');
-    } finally {
-      setGeneratingAudioForScript(prev => ({ ...prev, [scriptId]: false }));
-      setIsGeneratingAudio(false);
-    }
-  };
-
-  // Fetch script history on mount and when user changes
-  useEffect(() => {
-    fetchScriptHistory();
-  }, [fetchScriptHistory]);
-
-  // Add these helper functions for audio playback
-  const togglePlay = async (scriptId) => {
-    try {
-      const script = scriptHistory.find(s => s.id === scriptId);
-      if (!script?.audioUrl) return;
-
-      // Initialize audio element if it doesn't exist
-      if (!audioRefs.current[scriptId]) {
-        audioRefs.current[scriptId] = new Audio(script.audioUrl);
-        audioRefs.current[scriptId].onended = () => handleAudioEnd(scriptId);
-      }
-
-      const audio = audioRefs.current[scriptId];
-
-      if (isPlaying[scriptId]) {
-        await audio.pause();
-      } else {
-        // Pause any currently playing audio
-        for (const [key, audioElement] of Object.entries(audioRefs.current)) {
-          if (key !== scriptId && audioElement) {
-            await audioElement.pause();
-            setIsPlaying(prev => ({ ...prev, [key]: false }));
-          }
-        }
-        
-        try {
-          await audio.play();
-        } catch (error) {
-          console.error('Error playing audio:', error);
-          toast.error('Failed to play audio');
-          return;
-        }
-      }
-
-      setIsPlaying(prev => ({
-        ...prev,
-        [scriptId]: !prev[scriptId]
-      }));
-    } catch (error) {
-      console.error('Error in togglePlay:', error);
-      toast.error('Failed to play audio');
-    }
-  };
-
-  const handleAudioEnd = (scriptId) => {
-    setIsPlaying(prev => ({
-      ...prev,
-      [scriptId]: false
-    }));
-    
-    if (audioRefs.current[scriptId]) {
-      audioRefs.current[scriptId].currentTime = 0;
-    }
-  };
-
-  // Replace the existing downloadAudio function with this updated version
-  const downloadAudio = async (audioUrl, filename) => {
-    try {
-      setError(""); // Clear any existing errors
-      
-      // Show loading state (optional)
-      const loadingToast = alert("Downloading audio...");
-
-      const response = await fetch(audioUrl, {
-        method: 'GET',
-        headers: {
-          'Accept': 'audio/mpeg',
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      // Get the blob from the response
-      const blob = await response.blob();
-      
-      // Verify the blob
-      if (!blob || blob.size === 0) {
-        throw new Error('Received empty audio file');
-      }
-
-      // Create object URL
-      const url = window.URL.createObjectURL(
-        new Blob([blob], { type: 'audio/mpeg' })
-      );
-
-      // Create temporary link
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = filename || 'audio.mp3';
-
-      // Append to document, click, and cleanup
-      document.body.appendChild(link);
-      link.click();
-      
-      // Cleanup
-      setTimeout(() => {
-        window.URL.revokeObjectURL(url);
-        document.body.removeChild(link);
-      }, 100);
-
-      // Success message (optional)
-      alert("Download completed!");
-
-    } catch (error) {
-      console.error('Download error:', error);
-      setError(`Failed to download audio file: ${error.message}`);
-      alert("Download failed. Please try again.");
-    }
-  };
-
-  const hasAudio = (script) => {
-    return Boolean(script.audioUrl && script.hasAudio);
-  };
-
-  // Add this function to properly format dates
   const formatDate = (timestamp) => {
     if (!timestamp) return 'Invalid Date';
-    
+
     try {
-      // Handle Firestore timestamp
       if (timestamp.seconds) {
         return new Date(timestamp.seconds * 1000).toLocaleString();
       }
-      
-      // Handle Date object
       if (timestamp instanceof Date) {
         return timestamp.toLocaleString();
       }
-      
-      // Handle string or number
       return new Date(timestamp).toLocaleString();
     } catch (error) {
       console.error('Error formatting date:', error);
@@ -400,13 +179,9 @@ export default function ScriptGenerator() {
     }
   };
 
-  // Add these new functions after the existing functions
   const deleteScript = async (scriptId) => {
     try {
-      // Delete from Firestore
       await deleteDoc(doc(db, "scripts", scriptId));
-      
-      // Update local state
       setScriptHistory(prev => prev.filter(script => script.id !== scriptId));
     } catch (error) {
       console.error('Error deleting script:', error);
@@ -431,17 +206,15 @@ export default function ScriptGenerator() {
       }
 
       const data = await response.json();
-      
-      // Update in Firestore
+
       const scriptRef = doc(db, "scripts", script.id);
       await updateDoc(scriptRef, {
         script: data.script,
         updatedAt: new Date(),
       });
 
-      // Update local state
-      setScriptHistory(prev => prev.map(s => 
-        s.id === script.id 
+      setScriptHistory(prev => prev.map(s =>
+        s.id === script.id
           ? { ...s, script: data.script, updatedAt: new Date() }
           : s
       ));
@@ -464,16 +237,14 @@ export default function ScriptGenerator() {
 
   const saveEdit = async (scriptId) => {
     try {
-      // Update in Firestore
       const scriptRef = doc(db, "scripts", scriptId);
       await updateDoc(scriptRef, {
         script: editedContent,
         updatedAt: new Date(),
       });
 
-      // Update local state
-      setScriptHistory(prev => prev.map(s => 
-        s.id === scriptId 
+      setScriptHistory(prev => prev.map(s =>
+        s.id === scriptId
           ? { ...s, script: editedContent, updatedAt: new Date() }
           : s
       ));
@@ -486,9 +257,7 @@ export default function ScriptGenerator() {
     }
   };
 
-  // Add these functions near the top of your component, after the state declarations
   const sortedScriptHistory = [...scriptHistory].sort((a, b) => {
-    // Handle Firestore timestamps
     const getTime = (timestamp) => {
       if (!timestamp) return 0;
       if (timestamp.seconds) return timestamp.seconds * 1000;
@@ -498,7 +267,7 @@ export default function ScriptGenerator() {
 
     const timeA = getTime(a.createdAt);
     const timeB = getTime(b.createdAt);
-    return timeB - timeA; // Changed the order here to sort descending (newest first)
+    return timeB - timeA;
   });
 
   const paginate = (items) => {
@@ -506,7 +275,6 @@ export default function ScriptGenerator() {
     return items.slice(startIndex, startIndex + itemsPerPage);
   };
 
-  // Update the useEffect for pagination
   useEffect(() => {
     if (scriptHistory.length > 0) {
       const calculatedTotalPages = Math.ceil(scriptHistory.length / itemsPerPage);
@@ -517,10 +285,9 @@ export default function ScriptGenerator() {
     }
   }, [scriptHistory, currentPage, itemsPerPage]);
 
-  // Keep the PaginationControls component
   const PaginationControls = () => {
     if (scriptHistory.length <= itemsPerPage) return null;
-    
+
     return (
       <div className="flex justify-center items-center space-x-2 mt-6">
         <Button
@@ -548,347 +315,187 @@ export default function ScriptGenerator() {
     );
   };
 
-  // Update the script history section in your JSX
-  <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-6 mt-6">
-    <h2 className="text-xl font-semibold mb-4 text-gray-900 dark:text-white">Script History</h2>
-    <div className="grid grid-cols-1 gap-4">
-      {paginate(sortedScriptHistory).map(script => (
-        <div key={script.id} className="border rounded-lg p-4 shadow hover:shadow-lg transition-shadow duration-200">
-          <div className="mb-4">
-            {editingScript === script.id ? (
-              <div className="space-y-2">
-                <Textarea
-                  value={editedContent}
-                  onChange={(e) => setEditedContent(e.target.value)}
-                  className="w-full min-h-[100px]"
-                />
-                <div className="flex space-x-2">
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    onClick={() => saveEdit(script.id)}
-                  >
-                    Save
-                  </Button>
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    onClick={() => setEditingScript(null)}
-                  >
-                    Cancel
-                  </Button>
-                </div>
-              </div>
-            ) : (
-              formatScript(script.script)
-            )}
-          </div>
-          <div className="flex justify-between items-center mt-4">
-            <p className="text-sm text-gray-500">
-              {formatDate(script.createdAt)}
-              {script.updatedAt && ` (Updated: ${formatDate(script.updatedAt)})`}
-            </p>
-            <div className="flex space-x-2">
-              {hasAudio(script) ? (
-                <div className="flex space-x-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => togglePlay(script.id)}
-                    className="flex items-center"
-                  >
-                    {isPlaying[script.id] ? (
-                      <>
-                        <Pause className="w-4 h-4 mr-2" />
-                        Pause
-                      </>
-                    ) : (
-                      <>
-                        <Play className="w-4 h-4 mr-2" />
-                        Play
-                      </>
-                    )}
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => downloadAudio(script.audioUrl, script.audioFilename)}
-                    className="flex items-center"
-                  >
-                    <Download className="w-4 h-4 mr-2" />
-                    Download
-                  </Button>
-                </div>
-              ) : (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => generateAudio(script.id, script.script)}
-                  disabled={generatingAudioForScript[script.id]}
-                  className="flex items-center"
-                >
-                  {generatingAudioForScript[script.id] ? (
-                    <>
-                      <Volume2 className="w-4 h-4 mr-2 animate-pulse" />
-                      Generating...
-                    </>
-                  ) : (
-                    <>
-                      <Volume2 className="w-4 h-4 mr-2" />
-                      Generate Audio
-                    </>
-                  )}
-                </Button>
-              )}
-              
-              <Button 
-                variant="outline" 
-                size="sm"
-                onClick={() => startEditing(script)}
-                className="flex items-center"
-                disabled={editingScript === script.id}
-              >
-                <Edit className="w-4 h-4 mr-2" />
-                Edit
-              </Button>
-              <Button 
-                variant="outline" 
-                size="sm"
-                onClick={() => regenerateScript(script)}
-                className="flex items-center"
-                disabled={isGenerating}
-              >
-                <RefreshCw className="w-4 h-4 mr-2" />
-                Regenerate
-              </Button>
-              <Button 
-                variant="outline" 
-                size="sm"
-                onClick={() => deleteScript(script.id)}
-                className="flex items-center text-red-600 hover:text-red-700"
-              >
-                <Trash2 className="w-4 h-4 mr-2" />
-                Delete
-              </Button>
-              <Button 
-                variant="outline" 
-                size="sm"
-                onClick={() => copyScript(script.script)}
-                className="flex items-center"
-              >
-                <Copy className="w-4 h-4 mr-2" />
-                Copy
-              </Button>
-            </div>
-          </div>
-        </div>
-      ))}
-    </div>
-    <PaginationControls />
-  </div>
-
-  // Add debounce for input changes
   const debouncedInputChange = useCallback(
     debounce((value) => setInput(value), 300),
     []
   );
 
-  // Add loading state for initial data fetch
   const [isLoading, setIsLoading] = useState(true);
-
-
 
   return (
     <AuthCheck>
       <div className="min-h-screen bg-gray-50 dark:bg-[#121212] p-4 sm:p-6">
-          <div className="max-w-7xl mx-auto">
-            <div className="container mx-auto px-4">
-              <div className="max-w-4xl mx-auto">
-                <h1 className="text-4xl font-bold text-center mb-12 bg-clip-text text-transparent bg-gradient-to-r from-orange-500 to-orange-600">
-                  Youtube CTA Shorts Script Generator
-                </h1>
-                
-                <div className="bg-white dark:bg-[#171717] rounded-lg shadow-sm p-4 sm:p-6 mb-6">
-                  <div className="space-y-4">
-                    <div>
-                      <Label className="text-sm sm:text-base mb-2 block">Enter your prompt</Label>
-                      <Textarea
-                        value={input}
-                        onChange={(e) => setInput(e.target.value)}
-                        placeholder="Enter your prompt here..."
-                        className="w-full min-h-[100px] text-sm sm:text-base"
-                      />
-                    </div>
-                    
-                    <div className="space-y-3 sm:space-y-0 sm:flex sm:items-center sm:space-x-4">
-                      <Select value={selectedVoice} onValueChange={setSelectedVoice}>
-                        <SelectTrigger className="w-full sm:w-[200px] text-sm sm:text-base">
-                          <SelectValue placeholder="Select voice" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {voices.map((voice) => (
-                            <SelectItem key={voice.id} value={voice.id} className="text-sm sm:text-base">
-                              {voice.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+        <div className="max-w-7xl mx-auto">
+          <div className="container mx-auto px-4">
+            <div className="max-w-4xl mx-auto">
+              <h1 className="text-4xl font-bold text-center mb-12 bg-clip-text text-transparent bg-gradient-to-r from-orange-500 to-orange-600">
+                Youtube CTA Shorts Script Generator
+              </h1>
 
+              <div className="bg-white dark:bg-[#171717] rounded-lg shadow-sm p-4 sm:p-6 mb-6">
+                <div className="space-y-4">
+                  <div>
+                    <Label className="text-sm sm:text-base mb-2 block">Enter your prompt</Label>
+                    <Textarea
+                      value={input}
+                      onChange={(e) => setInput(e.target.value)}
+                      placeholder="Enter your prompt here..."
+                      className="w-full min-h-[100px] text-sm sm:text-base"
+                    />
+                  </div>
+
+                  <div className="space-y-3 sm:space-y-0 sm:flex sm:items-center sm:space-x-4">
+                    <Button
+                      onClick={generateScript}
+                      disabled={isGenerating || !input.trim()}
+                      className="w-full sm:w-auto bg-orange-500 hover:bg-orange-600 text-white text-sm sm:text-base"
+                    >
+                      {isGenerating ? (
+                        <div className="flex items-center space-x-2">
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                          <span>Generating...</span>
+                        </div>
+                      ) : (
+                        'Generate Script'
+                      )}
+                    </Button>
+                  </div>
+                </div>
+              </div>
+
+              {generatedScript && (
+                <div className="bg-white dark:bg-[#171717] rounded-lg shadow-sm p-4 sm:p-6 mb-6">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4">
+                    <h2 className="text-lg sm:text-xl font-semibold mb-2 sm:mb-0">Generated Script</h2>
+                    <div className="flex flex-col sm:flex-row gap-2 sm:gap-4">
                       <Button
-                        onClick={generateScript}
-                        disabled={isGenerating || !input.trim()}
-                        className="w-full sm:w-auto bg-orange-500 hover:bg-orange-600 text-white text-sm sm:text-base"
+                        onClick={() => copyScript(generatedScript)}
+                        className="w-full sm:w-auto text-sm sm:text-base"
+                        variant="outline"
                       >
-                        {isGenerating ? (
-                          <div className="flex items-center space-x-2">
-                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                            <span>Generating...</span>
-                          </div>
-                        ) : (
-                          'Generate Script'
-                        )}
+                        <Copy className="h-4 w-4 mr-2" />
+                        Copy
+                      </Button>
+                      <Button
+                        onClick={downloadScript}
+                        className="w-full sm:w-auto text-sm sm:text-base"
+                        variant="outline"
+                      >
+                        <Download className="h-4 w-4 mr-2" />
+                        Download
                       </Button>
                     </div>
                   </div>
-                </div>
-
-                {/* Generated Script Section */}
-                {generatedScript && (
-                  <div className="bg-white dark:bg-[#171717] rounded-lg shadow-sm p-4 sm:p-6 mb-6">
-                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4">
-                      <h2 className="text-lg sm:text-xl font-semibold mb-2 sm:mb-0">Generated Script</h2>
-                      <div className="flex flex-col sm:flex-row gap-2 sm:gap-4">
-                        <Button
-                          onClick={() => copyScript(generatedScript)}
-                          className="w-full sm:w-auto text-sm sm:text-base"
-                          variant="outline"
-                        >
-                          <Copy className="h-4 w-4 mr-2" />
-                          Copy
-                        </Button>
-                        <Button
-                          onClick={downloadScript}
-                          className="w-full sm:w-auto text-sm sm:text-base"
-                          variant="outline"
-                        >
-                          <Download className="h-4 w-4 mr-2" />
-                          Download
-                        </Button>
-                        <Button
-                          onClick={() => generateAudio(scriptHistory[0]?.id, generatedScript)}
-                          disabled={isGeneratingAudio}
-                          className="w-full sm:w-auto text-sm sm:text-base"
-                          variant="outline"
-                        >
-                          <Volume2 className="h-4 w-4 mr-2" />
-                          {isGeneratingAudio ? 'Generating Audio...' : 'Generate Audio'}
-                        </Button>
-                      </div>
-                    </div>
-                    <div className="prose dark:prose-invert max-w-none text-sm sm:text-base">
-                      {formatScript(generatedScript)}
-                    </div>
+                  <div className="prose dark:prose-invert max-w-none text-sm sm:text-base">
+                    {formatScript(generatedScript)}
                   </div>
-                )}
+                </div>
+              )}
 
-                {/* Script History Section */}
-                {scriptHistory.length > 0 && (
-                  <div className="bg-white dark:bg-[#171717] rounded-lg shadow-sm p-4 sm:p-6">
-                    <h2 className="text-lg sm:text-xl font-semibold mb-4">Script History</h2>
-                    <div className="space-y-4">
-                      {scriptHistory.map((script) => (
-                        <div
-                          key={script.id}
-                          className="border dark:border-gray-700 rounded-lg p-3 sm:p-4"
-                        >
-                          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-2">
-                            <div className="flex flex-col mb-2 sm:mb-0">
-                              <p className="text-sm text-gray-500 dark:text-gray-400">
-                                {script.createdAt?.toDate?.() ? new Date(script.createdAt.toDate()).toLocaleString() : 'Unknown date'}
-                              </p>
-                              {script.status === 'generating' && (
-                                <span className="inline-flex items-center text-xs text-orange-500">
-                                  <span className="mr-1">●</span> Generating...
-                                </span>
-                              )}
-                            </div>
-                            <div className="flex flex-wrap gap-2">
-                              <Button
-                                onClick={() => copyScript(script.script)}
-                                size="sm"
-                                variant="outline"
-                                className="text-xs sm:text-sm"
-                              >
-                                <Copy className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
-                                Copy
-                              </Button>
-                              {hasAudio(script) ? (
-                                <div className="flex space-x-2">
-                                  <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => togglePlay(script.id)}
-                                    className="flex items-center"
-                                  >
-                                    {isPlaying[script.id] ? (
-                                      <>
-                                        <Pause className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
-                                        Pause
-                                      </>
-                                    ) : (
-                                      <>
-                                        <Play className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
-                                        Play
-                                      </>
-                                    )}
-                                  </Button>
-                                  <Button
-                                    onClick={() => downloadAudio(script.audioUrl, script.audioFilename)}
-                                    size="sm"
-                                    variant="outline"
-                                    className="text-xs sm:text-sm"
-                                  >
-                                    <Download className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
-                                    Audio
-                                  </Button>
-                                </div>
-                              ) : (
-                                <Button
-                                  onClick={() => generateAudio(script.id, script.script)}
-                                  size="sm"
-                                  variant="outline"
-                                  className="text-xs sm:text-sm"
-                                  disabled={generatingAudioForScript[script.id]}
-                                >
-                                  <Volume2 className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
-                                  {generatingAudioForScript[script.id] ? 'Generating...' : 'Generate Audio'}
-                                </Button>
-                              )}
-                              <Button
-                                onClick={() => deleteScript(script.id)}
-                                size="sm"
-                                variant="outline"
-                                className="text-xs sm:text-sm text-red-500 hover:text-red-600"
-                              >
-                                <Trash2 className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
-                                Delete
-                              </Button>
-                            </div>
+              {scriptHistory.length > 0 && (
+                <div className="bg-white dark:bg-[#171717] rounded-lg shadow-sm p-4 sm:p-6">
+                  <h2 className="text-lg sm:text-xl font-semibold mb-4">Script History</h2>
+                  <div className="space-y-4">
+                    {paginate(sortedScriptHistory).map(script => (
+                      <div
+                        key={script.id}
+                        className="border dark:border-gray-700 rounded-lg p-3 sm:p-4"
+                      >
+                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-2">
+                          <div className="flex flex-col mb-2 sm:mb-0">
+                            <p className="text-sm text-gray-500 dark:text-gray-400">
+                              {script.createdAt?.toDate?.() ? new Date(script.createdAt.toDate()).toLocaleString() : 'Unknown date'}
+                            </p>
+                            {script.status === 'generating' && (
+                              <span className="inline-flex items-center text-xs text-orange-500">
+                                <span className="mr-1">●</span> Generating...
+                              </span>
+                            )}
                           </div>
-                          <div className="prose dark:prose-invert max-w-none text-sm">
-                            {formatScript(script.script)}
+                          <div className="flex flex-wrap gap-2">
+                            <Button
+                              onClick={() => copyScript(script.script)}
+                              size="sm"
+                              variant="outline"
+                              className="text-xs sm:text-sm"
+                            >
+                              <Copy className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+                              Copy
+                            </Button>
+
+                            <Button
+                              onClick={() => startEditing(script)}
+                              size="sm"
+                              variant="outline"
+                              className="text-xs sm:text-sm"
+                              disabled={editingScript === script.id}
+                            >
+                              <Edit className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+                              Edit
+                            </Button>
+                            <Button
+                              onClick={() => regenerateScript(script)}
+                              size="sm"
+                              variant="outline"
+                              className="text-xs sm:text-sm"
+                              disabled={isGenerating}
+                            >
+                              <RefreshCw className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+                              Regenerate
+                            </Button>
+                            <Button
+                              onClick={() => deleteScript(script.id)}
+                              size="sm"
+                              variant="outline"
+                              className="text-xs sm:text-sm text-red-500 hover:text-red-600"
+                            >
+                              <Trash2 className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+                              Delete
+                            </Button>
                           </div>
                         </div>
-                      ))}
-                    </div>
-                    <PaginationControls />
+
+                        <div className="mb-4">
+                          {editingScript === script.id ? (
+                            <div className="space-y-2">
+                              <Textarea
+                                value={editedContent}
+                                onChange={(e) => setEditedContent(e.target.value)}
+                                className="w-full min-h-[100px]"
+                              />
+                              <div className="flex space-x-2">
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => saveEdit(script.id)}
+                                >
+                                  Save
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => setEditingScript(null)}
+                                >
+                                  Cancel
+                                </Button>
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="prose dark:prose-invert max-w-none text-sm">
+                              {formatScript(script.script)}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                )}
-              </div>
+                  <PaginationControls />
+                </div>
+              )}
             </div>
           </div>
         </div>
-      </AuthCheck>
-    );
-  }
-
+      </div>
+    </AuthCheck>
+  );
+}

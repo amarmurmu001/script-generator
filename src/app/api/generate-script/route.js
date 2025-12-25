@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import { GoogleGenerativeAI } from "@google/generative-ai";
 import { headers } from "next/headers";
 
 // Initialize rate limiting map
@@ -12,71 +11,14 @@ function checkRateLimit(ip) {
   const now = Date.now();
   const userRequests = rateLimitMap.get(ip) || [];
   const recentRequests = userRequests.filter(time => now - time < RATE_LIMIT_DURATION);
-  
+
   if (recentRequests.length >= MAX_REQUESTS) {
     return false;
   }
-  
+
   recentRequests.push(now);
   rateLimitMap.set(ip, recentRequests);
   return true;
-}
-
-// Initialize the Google Generative AI with your API key
-const apiKey = process.env.GEMINI_API_KEY;
-
-// Validate API key at startup
-if (!apiKey) {
-  console.error("GEMINI_API_KEY is not set in environment variables");
-  throw new Error("Missing API key configuration");
-}
-
-const genAI = new GoogleGenerativeAI(apiKey);
-
-async function generateText(prompt, input, category, tags) {
-  try {
-    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
-
-    // Add safety settings
-    const safetySettings = [
-      {
-        category: "HARM_CATEGORY_HARASSMENT",
-        threshold: "BLOCK_MEDIUM_AND_ABOVE",
-      },
-      {
-        category: "HARM_CATEGORY_HATE_SPEECH",
-        threshold: "BLOCK_MEDIUM_AND_ABOVE",
-      },
-    ];
-
-    const result = await model.generateContent({
-      contents: [{ role: "user", parts: [{ text: prompt }] }],
-      safetySettings,
-      generationConfig: {
-        temperature: 0.7,
-        topK: 40,
-        topP: 0.95,
-        maxOutputTokens: 1024,
-      },
-    });
-
-    const response = await result.response;
-    const generatedText = response.text().replace(/\*\*(.*?)\*\*/g, "$1");
-
-    return generatedText;
-  } catch (error) {
-    console.error("Error in generateText:", error);
-
-    if (error.message?.includes("API key not valid")) {
-      throw new Error("Invalid API key configuration");
-    } else if (error.message?.includes("quota exceeded")) {
-      throw new Error("API quota exceeded");
-    } else if (error.message?.includes("rate limit")) {
-      throw new Error("Rate limit exceeded");
-    }
-
-    throw new Error("Failed to generate content: " + error.message);
-  }
 }
 
 export async function POST(req) {
@@ -84,7 +26,7 @@ export async function POST(req) {
     // Get client IP for rate limiting
     const headersList = headers();
     const ip = headersList.get("x-forwarded-for") || "unknown";
-    
+
     // Check rate limit
     if (!checkRateLimit(ip)) {
       return NextResponse.json(
@@ -102,20 +44,14 @@ export async function POST(req) {
       );
     }
 
-    const apiKey = process.env.GEMINI_API_KEY;
+    const apiKey = process.env.OPENROUTER_API_KEY;
     if (!apiKey) {
-      console.error("Missing Gemini API key");
+      console.error("Missing OpenRouter API key");
       return NextResponse.json(
         { error: "Server configuration error" },
         { status: 500 }
       );
     }
-
-    // Initialize Gemini AI
-    const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({ 
-      model: "gemini-2.0-flash"
-    });
 
     const prompt = `Create an engaging YouTube Shorts script about ${input}. 
     The script must follow this EXACT format with line breaks (do not include any other text or formatting):
@@ -148,22 +84,56 @@ export async function POST(req) {
     Follow this format exactly with double quote, keeping options concise with one primary word followed by a short explanation. Make the CTA engaging and include both a comment prompt and FOMO element. Use conversational, TikTok-style language.`;
 
     try {
-      const result = await model.generateContent(prompt);
-      const response = await result.response;
-      const script = response.text();
+      // Using Mistral Devstral 2 2512 (free) as requested
+      const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${apiKey}`,
+          "HTTP-Referer": process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000',
+          "X-Title": "Script Generator",
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          "model": "mistralai/devstral-2512:free",
+          "messages": [
+            {
+              "role": "user",
+              "content": prompt
+            }
+          ]
+        })
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error("OpenRouter API Error Response:", errorText);
+
+        try {
+          const errorData = JSON.parse(errorText);
+          throw new Error(errorData.error?.message || "OpenRouter API error");
+        } catch (parseError) {
+          throw new Error(`OpenRouter API error: ${response.status} ${response.statusText}`);
+        }
+      }
+
+      const data = await response.json();
+      const script = data.choices[0]?.message?.content;
 
       if (!script) {
         throw new Error("Empty response from AI model");
       }
 
-      return NextResponse.json({ 
-        script,
+      // Clean up the script format if needed (OpenRouter/Mistral might add markdown)
+      const cleanScript = script.replace(/\*\*(.*?)\*\*/g, "$1");
+
+      return NextResponse.json({
+        script: cleanScript,
         timestamp: new Date().toISOString(),
         requestId: Math.random().toString(36).substring(7)
       });
     } catch (modelError) {
       console.error("AI Model error:", modelError);
-      
+
       // Handle specific API errors
       if (modelError.message?.includes("API key")) {
         return NextResponse.json(
@@ -176,7 +146,7 @@ export async function POST(req) {
           { status: 429 }
         );
       }
-      
+
       return NextResponse.json(
         { error: "Failed to generate script. Please try again." },
         { status: 503 }
