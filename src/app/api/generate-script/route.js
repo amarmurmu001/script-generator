@@ -1,37 +1,70 @@
 import { NextResponse } from "next/server";
 import { headers } from "next/headers";
+import { getAuth } from 'firebase-admin/auth';
+import { initializeApp, getApps, cert } from 'firebase-admin/app';
+import { updateScriptLimit, checkScriptGenerationLimit } from '@/lib/script-limits';
 
-// Initialize rate limiting map
 const rateLimitMap = new Map();
-const RATE_LIMIT_DURATION = 60 * 1000; // 1 minute
-const MAX_REQUESTS = 10; // 10 requests per minute
+const RATE_LIMIT_DURATION = 60 * 1000;
+const MAX_REQUESTS = 10;
 
-// Rate limiting function
+if (!getApps().length) {
+  initializeApp({
+    credential: cert({
+      projectId: process.env.FIREBASE_ADMIN_PROJECT_ID,
+      clientEmail: process.env.FIREBASE_ADMIN_CLIENT_EMAIL,
+      privateKey: process.env.FIREBASE_ADMIN_PRIVATE_KEY?.replace(/\\n/g, '\n'),
+    }),
+  });
+}
+
 function checkRateLimit(ip) {
   const now = Date.now();
   const userRequests = rateLimitMap.get(ip) || [];
   const recentRequests = userRequests.filter(time => now - time < RATE_LIMIT_DURATION);
-
-  if (recentRequests.length >= MAX_REQUESTS) {
-    return false;
-  }
-
+  if (recentRequests.length >= MAX_REQUESTS) return false;
   recentRequests.push(now);
   rateLimitMap.set(ip, recentRequests);
   return true;
 }
 
+async function verifyAuthToken(req) {
+  try {
+    const authHeader = req.headers.get('authorization');
+    if (!authHeader?.startsWith('Bearer ')) return null;
+    const token = authHeader.split('Bearer ')[1];
+    const decoded = await getAuth().verifyIdToken(token);
+    return decoded.uid;
+  } catch {
+    return null;
+  }
+}
+
 export async function POST(req) {
   try {
-    // Get client IP for rate limiting
     const headersList = headers();
     const ip = headersList.get("x-forwarded-for") || "unknown";
 
-    // Check rate limit
     if (!checkRateLimit(ip)) {
       return NextResponse.json(
         { error: "Rate limit exceeded. Please try again later." },
         { status: 429 }
+      );
+    }
+
+    const userId = await verifyAuthToken(req);
+    if (!userId) {
+      return NextResponse.json(
+        { error: "Authentication required" },
+        { status: 401 }
+      );
+    }
+
+    const limit = await checkScriptGenerationLimit(userId);
+    if (limit.remaining <= 0) {
+      return NextResponse.json(
+        { error: "Script generation limit reached. Please upgrade your plan or wait for reset." },
+        { status: 403 }
       );
     }
 
@@ -84,7 +117,6 @@ export async function POST(req) {
     Follow this format exactly with double quote, keeping options concise with one primary word followed by a short explanation. Make the CTA engaging and include both a comment prompt and FOMO element. Use conversational, TikTok-style language.`;
 
     try {
-      // Using Mistral Devstral 2 2512 (free) as requested
       const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
         method: "POST",
         headers: {
@@ -95,19 +127,13 @@ export async function POST(req) {
         },
         body: JSON.stringify({
           "model": "mistralai/devstral-2512:free",
-          "messages": [
-            {
-              "role": "user",
-              "content": prompt
-            }
-          ]
+          "messages": [{ "role": "user", "content": prompt }]
         })
       });
 
       if (!response.ok) {
         const errorText = await response.text();
         console.error("OpenRouter API Error Response:", errorText);
-
         try {
           const errorData = JSON.parse(errorText);
           throw new Error(errorData.error?.message || "OpenRouter API error");
@@ -123,8 +149,9 @@ export async function POST(req) {
         throw new Error("Empty response from AI model");
       }
 
-      // Clean up the script format if needed (OpenRouter/Mistral might add markdown)
       const cleanScript = script.replace(/\*\*(.*?)\*\*/g, "$1");
+
+      await updateScriptLimit(userId);
 
       return NextResponse.json({
         script: cleanScript,
@@ -133,30 +160,15 @@ export async function POST(req) {
       });
     } catch (modelError) {
       console.error("AI Model error:", modelError);
-
-      // Handle specific API errors
       if (modelError.message?.includes("API key")) {
-        return NextResponse.json(
-          { error: "Invalid API configuration" },
-          { status: 401 }
-        );
+        return NextResponse.json({ error: "Invalid API configuration" }, { status: 401 });
       } else if (modelError.message?.includes("quota") || modelError.message?.includes("rate")) {
-        return NextResponse.json(
-          { error: "API rate limit exceeded" },
-          { status: 429 }
-        );
+        return NextResponse.json({ error: "API rate limit exceeded" }, { status: 429 });
       }
-
-      return NextResponse.json(
-        { error: "Failed to generate script. Please try again." },
-        { status: 503 }
-      );
+      return NextResponse.json({ error: "Failed to generate script. Please try again." }, { status: 503 });
     }
   } catch (error) {
     console.error("Server error:", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
